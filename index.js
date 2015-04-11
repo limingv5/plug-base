@@ -1,11 +1,12 @@
-function PlugBase(config_dir) {
+function PlugBase() {
   var urlLib = require("url");
   var QUERY = require("querystring");
   var app = require("connect")();
   var timeout = require("connect-timeout");
 
   this.app = app;
-  this.config_dir = config_dir;
+  this.config_dir = null;
+  this.hostsMap = {};
   this.middlewares = [];
 
   this.app
@@ -34,6 +35,12 @@ function PlugBase(config_dir) {
 }
 PlugBase.prototype = {
   constructor: PlugBase,
+  config: function (config_dir) {
+    this.config_dir = config_dir;
+  },
+  hosts: function (hosts) {
+    this.hostsMap = hosts;
+  },
   use: function (middleware, params) {
     this.middlewares.push({
       module: middleware,
@@ -55,6 +62,20 @@ PlugBase.prototype = {
 
     var HTTPS_DIR = path.join(__dirname, "https");
     var rootCA = path.join(HTTPS_DIR, "rootCA.crt");
+    var serverPath = path.join(HTTPS_DIR, ".sni");
+
+    if (!fs.existsSync(serverPath)) {
+      fs.mkdirSync(serverPath);
+      fs.chmod(serverPath, 0777);
+    }
+    fs.readdir(serverPath, function (err, files) {
+      if (!err) {
+        files.forEach(function (file) {
+          fs.unlink(path.join(serverPath, file));
+        });
+      }
+    });
+
     var shell;
     if (platform.match(/^win/i)) {
       shell = "certutil -addstore -f \"ROOT\" new-root-certificate.crt";
@@ -65,14 +86,13 @@ PlugBase.prototype = {
     else {
       // TODO: Linux
     }
-
     exec(shell, function () {
       console.log("The rootCA is installed!");
     });
 
     var self = this;
 
-    require("flex-hosts")({}, self.config_dir).once("refreshed", function (hosts) {
+    require("flex-hosts")(this.hostsMap, this.config_dir).once("refreshed", function (hosts) {
       self.middlewares.forEach(function (middleware) {
         middleware.params.hosts = hosts;
         self.app.use(middleware.module(middleware.params, self.config_dir))
@@ -87,10 +107,6 @@ PlugBase.prototype = {
       https
         .createServer({
           SNICallback: function (domain, SNICallback) {
-            var serverPath = path.join(HTTPS_DIR, ".sni");
-            if (!fs.existsSync(serverPath)) {
-              fs.mkdirSync(serverPath);
-            }
             var certPath = path.join(serverPath, domain);
             var key = certPath + ".key";
             var crt = certPath + ".crt";
@@ -108,6 +124,8 @@ PlugBase.prototype = {
                     key: fs.readFileSync(key, "utf-8"),
                     cert: fs.readFileSync(crt, "utf-8")
                   }));
+                  fs.chmod(key, 0777);
+                  fs.chmod(crt, 0777);
                 }
                 else {
                   SNICallback(err);
@@ -124,4 +142,4 @@ PlugBase.prototype = {
   }
 };
 
-exports = module.exports = PlugBase;
+exports = module.exports = new PlugBase();

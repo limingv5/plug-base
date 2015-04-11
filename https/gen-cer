@@ -27,3 +27,5 @@ openssl req -new -key $outputPath/$domain.key -out $outputPath/$domain.csr -pass
  
 #Generating a Self-Signed Certificate
 openssl x509 -req -days 365 -in $outputPath/$domain.csr -CA ${outputPath}/../rootCA.crt -CAkey ${outputPath}/../rootCA.key -CAcreateserial -out $outputPath/$domain.crt
+
+rm $outputPath/$domain.csr
