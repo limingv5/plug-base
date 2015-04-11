@@ -1,0 +1,16 @@
+{
+  "name": "plug-base",
+  "version": "0.0.1",
+  "description": "Plug Base for FE-Dev",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [
+    "fe",
+    "server",
+    "clam"
+  ],
+  "author": "limingv5",
+  "license": "ISC"
+}
