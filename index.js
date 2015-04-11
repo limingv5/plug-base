@@ -1,16 +1,12 @@
 function PlugBase() {
-  var urlLib = require("url");
-  var QUERY = require("querystring");
-  var app = require("connect")();
-  var timeout = require("connect-timeout");
-
-  this.app = app;
+  this.app = require("connect")();
   this.config_dir = null;
+  this.rootdir = "src";
   this.hostsMap = {};
   this.middlewares = [];
 
   this.app
-    .use(timeout("5s"))
+    .use(require("connect-timeout")("5s"))
     .use(function (req, res, next) {
       var buffer = [];
       req.on("data", function (chunk) {
@@ -18,15 +14,20 @@ function PlugBase() {
       });
 
       req.on("end", function () {
-        buffer = Buffer.concat(buffer);
-        req.query = {
-          _POST: QUERY.parse(buffer.toString()),
-          _GET: {}
-        };
+        var urlLib = require("url");
+        var QUERY = require("querystring");
+
+        req.body = {};
 
         var _get = urlLib.parse(req.url).path.match(/([^\?])\?[^\?].*$/);
         if (_get && _get[0]) {
-          req.query._GET = QUERY.parse(_get[0].slice(2));
+          req.body = QUERY.parse(_get[0].slice(2));
+        }
+
+        buffer = Buffer.concat(buffer);
+        var post = QUERY.parse(buffer.toString());
+        for (var k in post) {
+          req.body[k] = post[k];
         }
 
         next();
@@ -37,6 +38,9 @@ PlugBase.prototype = {
   constructor: PlugBase,
   config: function (config_dir) {
     this.config_dir = config_dir;
+  },
+  root: function (rootdir) {
+    this.rootdir = rootdir;
   },
   hosts: function (hosts) {
     this.hostsMap = hosts;
@@ -50,7 +54,9 @@ PlugBase.prototype = {
   },
   listen: function (http_port, https_port) {
     http_port = http_port || 80;
-    https_port = https_port || 443;
+    if (["function", "undefined"].indexOf(typeof https_port) != -1) {
+      https_port = 443;
+    }
 
     var fs = require("fs");
     var path = require("path");
@@ -95,11 +101,12 @@ PlugBase.prototype = {
     require("flex-hosts")(this.hostsMap, this.config_dir).once("refreshed", function (hosts) {
       self.middlewares.forEach(function (middleware) {
         middleware.params.hosts = hosts;
+        middleware.params.rootdir = self.rootdir;
         self.app.use(middleware.module(middleware.params, self.config_dir))
       });
 
       self.app
-        .use(require("serve-index")("src", {'icons': true}))
+        .use(require("serve-index")(self.rootdir, {icons: true}))
         .listen(http_port, function () {
           console.log("HTTP Server running at http://127.0.0.1:" + http_port);
         });

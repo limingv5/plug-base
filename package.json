@@ -10,18 +10,15 @@
   "keywords": [
     "fe",
     "server",
-    "clam"
+    "middleware",
+    "development"
   ],
   "author": "limingv5",
   "license": "ISC",
-  "devDependencies": {
-    "mocha": "~2.2.4",
-    "rewire": "~2.3.1"
-  },
   "dependencies": {
     "connect": "~3.3.5",
     "connect-timeout": "~1.6.1",
-    "flex-hosts": "~0.2.6",
+    "flex-hosts": "~0.2.7",
     "serve-index": "~1.6.3"
   }
 }
