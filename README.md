@@ -2,24 +2,22 @@
 
 ```
 var server = require("plug-base");
-  server.root("src");
-  server.config("config_dir");
-  server.hosts({
-    "127.0.0.1": [
-      "g.cdn.com",
-      "a.cdn.com"
-    ]
-  });
+// 设置根目录
+server.root("src");
 
-  getVer(function(version) {
-    var params = {
-      cdnPath: cdnPath,
-      version: version
-    };
+// 设置配置文件目录
+server.config(".config");
 
-    server
-      .use(require("flex-combo"), params)
-      .use(require("essi"), params)
-      .listen(80, 443);
-  });
+// 设置hosts映射关系
+server.hosts({
+  "127.0.0.1": [
+    "g.cdn.com",
+    "a.cdn.com"
+  ]
+});
+
+server
+  .use(require("flex-combo"), {...})
+  .use(require("essi"), {...})
+  .listen(80, 443);
 ```
