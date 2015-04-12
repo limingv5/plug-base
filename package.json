@@ -1,6 +1,6 @@
 {
   "name": "plug-base",
-  "version": "0.0.3",
+  "version": "0.0.4",
   "description": "Plug Base for FE-Dev",
   "main": "index.js",
   "repository": "https://github.com/limingv5/plug-base.git",
@@ -18,7 +18,7 @@
   "dependencies": {
     "connect": "~3.3.5",
     "connect-timeout": "~1.6.1",
-    "flex-hosts": "~0.2.7",
+    "flex-hosts": "~0.3.0",
     "serve-index": "~1.6.3"
   }
 }

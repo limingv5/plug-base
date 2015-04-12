@@ -75,7 +75,6 @@ PlugBase.prototype = {
     }
 
     var https = require("https");
-
     var tls = require("tls");
     var exec = require("child_process").exec;
     var platform = require("os").platform();
@@ -112,7 +111,7 @@ PlugBase.prototype = {
 
     var self = this;
 
-    require("flex-hosts")(this.hostsMap, this.config_dir).once("refreshed", function (hosts) {
+    require("flex-hosts")(this.hostsMap, this.config_dir, function (hosts) {
       self.middlewares.forEach(function (middleware) {
         middleware.params.hosts = hosts;
         middleware.params.rootdir = middleware.params.rootdir || self.rootdir;
