@@ -1,3 +1,6 @@
+var fs = require("fs");
+var path = require("path");
+
 function PlugBase() {
   this.app = require("connect")();
   this.config_dir = null;
@@ -8,6 +11,19 @@ function PlugBase() {
   this.app
     .use(require("connect-timeout")("5s"))
     .use(function (req, res, next) {
+      if (/^\/favicon\.ico$/.test(req.url)) {
+        res.writeHead(200, {
+          "Content-Type": "image/x-icon"
+        });
+        res.end(fs.readFileSync(path.join(__dirname, "assets/favicon.ico")));
+      }
+      else {
+        next();
+      }
+    })
+    .use(function (req, res, next) {
+      req.url = decodeURI(req.url);
+
       var buffer = [];
       req.on("data", function (chunk) {
         buffer.push(chunk);
@@ -48,7 +64,7 @@ PlugBase.prototype = {
   use: function (middleware, params) {
     this.middlewares.push({
       module: middleware,
-      params: params
+      params: (params && typeof params == "object") ? JSON.parse(JSON.stringify(params)) : {}
     });
     return this;
   },
@@ -58,8 +74,6 @@ PlugBase.prototype = {
       https_port = 443;
     }
 
-    var fs = require("fs");
-    var path = require("path");
     var https = require("https");
 
     var tls = require("tls");
@@ -101,8 +115,8 @@ PlugBase.prototype = {
     require("flex-hosts")(this.hostsMap, this.config_dir).once("refreshed", function (hosts) {
       self.middlewares.forEach(function (middleware) {
         middleware.params.hosts = hosts;
-        middleware.params.rootdir = self.rootdir;
-        self.app.use(middleware.module(middleware.params, self.config_dir))
+        middleware.params.rootdir = middleware.params.rootdir || self.rootdir;
+        self.app.use(middleware.module(middleware.params, self.config_dir));
       });
 
       self.app
