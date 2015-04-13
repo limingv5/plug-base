@@ -1,5 +1,6 @@
 var fs = require("fs");
 var path = require("path");
+var mime = require("mime");
 
 try {
   var pkg = require(__dirname + "/package.json");
@@ -48,16 +49,16 @@ function PlugBase() {
       console.log("Downloading " + rootCA);
 
       res.writeHead(200, {
-        "Content-Type": "application/x-x509-ca-cert",
+        "Content-Type": mime.lookup(rootCA),
         "Content-Disposition": "attachment;filename=" + rootCA
       });
-      res.end(fs.readFileSync(path.join(__dirname, "https/" + rootCA), {encoding:null}));
+      res.end(fs.readFileSync(path.join(__dirname, "https/" + rootCA), {encoding: null}));
     })
     .use("/favicon.ico", function (req, res) {
       res.writeHead(200, {
-        "Content-Type": "image/x-icon"
+        "Content-Type": mime.lookup("favicon.ico")
       });
-      res.end(fs.readFileSync(path.join(__dirname, "assets/favicon.ico"), {encoding:null}));
+      res.end(fs.readFileSync(path.join(__dirname, "assets/favicon.ico"), {encoding: null}));
     })
     .use(function (req, res, next) {
       req.url = decodeURI(req.url);
@@ -171,7 +172,12 @@ PlugBase.prototype = {
 
       self.app
         .use(require("serve-index")(self.rootdir, {icons: true}))
-        .use(require("serve-static")(self.rootdir, {index: false}))
+        .use(require("serve-static")(self.rootdir, {
+          index: false,
+          setHeaders: function (res, path) {
+            res.setHeader("Content-Type", mime.lookup(path));
+          }
+        }))
         .listen(http_port, function () {
           console.log("HTTP Server running at http://127.0.0.1:" + http_port);
           typeof cb == "function" && cb(http_port);
