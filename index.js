@@ -61,16 +61,22 @@ PlugBase.prototype = {
   hosts: function (hosts) {
     this.hostsMap = hosts;
   },
-  use: function (middleware, params) {
+  plug: function (module, params) {
     this.middlewares.push({
-      module: middleware,
+      module: module,
       params: (params && typeof params == "object") ? JSON.parse(JSON.stringify(params)) : {}
     });
     return this;
   },
-  listen: function (http_port, https_port) {
+  use: function (middleware) {
+    this.middlewares.push(middleware);
+    return this;
+  },
+  listen: function (http_port, https_port, cb) {
     http_port = http_port || 80;
-    if (["function", "undefined"].indexOf(typeof https_port) != -1) {
+
+    if (typeof https_port == "function") {
+      cb = https_port;
       https_port = 443;
     }
 
@@ -113,15 +119,22 @@ PlugBase.prototype = {
 
     require("flex-hosts")(this.hostsMap, this.config_dir, function (hosts) {
       self.middlewares.forEach(function (middleware) {
-        middleware.params.hosts = hosts;
-        middleware.params.rootdir = middleware.params.rootdir || self.rootdir;
-        self.app.use(middleware.module(middleware.params, self.config_dir));
+        if (typeof middleware == "function") {
+          self.app.use(middleware);
+        }
+        else if (typeof middleware.module == "function") {
+          middleware.params.hosts = hosts;
+          middleware.params.rootdir = middleware.params.rootdir || self.rootdir;
+          self.app.use(middleware.module(middleware.params, self.config_dir));
+        }
       });
 
       self.app
         .use(require("serve-index")(self.rootdir, {icons: true}))
+        .use(require("serve-static")(self.rootdir, {index: false}))
         .listen(http_port, function () {
           console.log("HTTP Server running at http://127.0.0.1:" + http_port);
+          typeof cb == "function" && cb(http_port);
         });
 
       https
@@ -157,6 +170,7 @@ PlugBase.prototype = {
         }, self.app)
         .listen(https_port, function () {
           console.log("HTTPS Server running at https://127.0.0.1:" + https_port);
+          typeof cb == "function" && cb(https_port);
         });
     });
   }

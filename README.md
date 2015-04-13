@@ -17,7 +17,15 @@ server.hosts({
 });
 
 server
-  .use(require("flex-combo"), {...})
-  .use(require("essi"), {...})
-  .listen(80, 443);
+  // 普通中间件
+  .use(function (req, res, next) {
+    ...
+    next();
+  })
+  // 支持启动后传入统一配置的中间件
+  .plug(require("flex-combo"), {...})
+  .plug(require("essi"), {...})
+  .listen([80,] [443,] [function (port) {
+    ...
+  }]);
 ```
