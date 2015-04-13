@@ -140,9 +140,11 @@ PlugBase.prototype = {
       }
     });
 
+    var genCert = HTTPS_DIR + "/gen-cer";
     var shell;
     if (platform.match(/^win/i)) {
       shell = "certutil -addstore -f \"ROOT\" new-root-certificate.crt";
+      genCert += ".cmd";
     }
     else if (platform.match(/darwin/i)) {
       shell = "sudo security add-trusted-cert -d -r trustRoot -k /Library/Keychains/System.keychain " + rootCA;
@@ -150,7 +152,8 @@ PlugBase.prototype = {
     else {
       // TODO: Linux
     }
-    exec(shell, function () {
+
+    shell && exec(shell, function () {
       console.log("The rootCA is installed!");
     });
 
@@ -202,7 +205,7 @@ PlugBase.prototype = {
                 }));
               }
               else {
-                exec(HTTPS_DIR + "/gen-cer " + domain + ' ' + serverPath, function (err) {
+                exec([genCert, domain, serverPath].join(' '), function (err) {
                   if (!err) {
                     SNICallback(null, createSecureContext({
                       key: fs.readFileSync(key, "utf-8"),
