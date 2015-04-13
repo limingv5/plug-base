@@ -1,6 +1,22 @@
 var fs = require("fs");
 var path = require("path");
 
+try {
+  var pkg = require(__dirname + "/package.json");
+
+  require("check-update")({
+    packageName: pkg.name,
+    packageVersion: pkg.version,
+    isCLI: process.title == "node"
+  }, function (err, latestVersion, defaultMessage) {
+    if (!err && pkg.version < latestVersion) {
+      console.log(defaultMessage);
+    }
+  });
+}
+catch (e) {
+}
+
 function PlugBase() {
   this.app = require("connect")();
   this.config_dir = null;
@@ -77,11 +93,9 @@ PlugBase.prototype = {
 
     if (typeof https_port == "function") {
       cb = https_port;
-      https_port = 443;
+      https_port = null;
     }
 
-    var https = require("https");
-    var tls = require("tls");
     var exec = require("child_process").exec;
     var platform = require("os").platform();
 
@@ -137,41 +151,47 @@ PlugBase.prototype = {
           typeof cb == "function" && cb(http_port);
         });
 
-      https
-        .createServer({
-          SNICallback: function (domain, SNICallback) {
-            var certPath = path.join(serverPath, domain);
-            var key = certPath + ".key";
-            var crt = certPath + ".crt";
+      if (https_port) {
+        var https = require("https");
+        var tls = require("tls");
+        var crypto = require("crypto");
+        var createSecureContext = tls.createSecureContext || crypto.createSecureContext;
+        https
+          .createServer({
+            SNICallback: function (domain, SNICallback) {
+              var certPath = path.join(serverPath, domain);
+              var key = certPath + ".key";
+              var crt = certPath + ".crt";
 
-            if (fs.existsSync(key) && fs.existsSync(crt)) {
-              SNICallback(null, tls.createSecureContext({
-                key: fs.readFileSync(key, "utf-8"),
-                cert: fs.readFileSync(crt, "utf-8")
-              }));
-            }
-            else {
-              exec(HTTPS_DIR + "/gen-cer " + domain + ' ' + serverPath, function (err) {
-                if (!err) {
-                  SNICallback(null, tls.createSecureContext({
-                    key: fs.readFileSync(key, "utf-8"),
-                    cert: fs.readFileSync(crt, "utf-8")
-                  }));
-                  fs.chmod(key, 0777);
-                  fs.chmod(crt, 0777);
-                }
-                else {
-                  SNICallback(err);
-                }
-              });
-            }
-          },
-          ca: fs.readFileSync(rootCA, "utf-8")
-        }, self.app)
-        .listen(https_port, function () {
-          console.log("HTTPS Server running at https://127.0.0.1:" + https_port);
-          typeof cb == "function" && cb(https_port);
-        });
+              if (fs.existsSync(key) && fs.existsSync(crt)) {
+                SNICallback(null, createSecureContext({
+                  key: fs.readFileSync(key, "utf-8"),
+                  cert: fs.readFileSync(crt, "utf-8")
+                }));
+              }
+              else {
+                exec(HTTPS_DIR + "/gen-cer " + domain + ' ' + serverPath, function (err) {
+                  if (!err) {
+                    SNICallback(null, createSecureContext({
+                      key: fs.readFileSync(key, "utf-8"),
+                      cert: fs.readFileSync(crt, "utf-8")
+                    }));
+                    fs.chmod(key, 0777);
+                    fs.chmod(crt, 0777);
+                  }
+                  else {
+                    SNICallback(err);
+                  }
+                });
+              }
+            },
+            ca: fs.readFileSync(rootCA, "utf-8")
+          }, self.app)
+          .listen(https_port, function () {
+            console.log("HTTPS Server running at https://127.0.0.1:" + https_port);
+            typeof cb == "function" && cb(https_port);
+          });
+      }
     });
   }
 };
