@@ -42,3 +42,9 @@ server
 移动设备扫描该二维码并下载根证书安装于设备中，以支持移动设备调试HTTPs页面。
 
 * `http://127.0.0.1/~rootCA.crt`是根证书的实际下载地址。
+
+## OS Support
+
+Mac OSX, Windows, Linux
+
+Tell me the bugs Via `limingv5[#]gmail.com`
