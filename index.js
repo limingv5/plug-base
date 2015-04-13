@@ -24,18 +24,40 @@ function PlugBase() {
   this.hostsMap = {};
   this.middlewares = [];
 
+  var rootCA = "rootCA.crt";
+
   this.app
     .use(require("connect-timeout")("5s"))
-    .use(function (req, res, next) {
-      if (/^\/favicon\.ico$/.test(req.url)) {
-        res.writeHead(200, {
-          "Content-Type": "image/x-icon"
-        });
-        res.end(fs.readFileSync(path.join(__dirname, "assets/favicon.ico")));
-      }
-      else {
-        next();
-      }
+    .use("/~", function (req, res) {
+      res.writeHead(200, {
+        "Content-Type": "text/html"
+      });
+      res.write(
+        "<style>body{text-align: center}</style>" +
+        "<h1>Scan && Install the Root-CA in your mobile devices:</h1>"
+      );
+
+      var CAUrl = "http://" + require("ip").address() + "/~" + rootCA;
+      var qr = require("qrcode-npm").qrcode(4, 'M');
+      qr.addData(CAUrl);
+      qr.make();
+      res.write(qr.createImgTag(4));
+      res.end("<p><a href='" + CAUrl + "'>" + CAUrl + "</a></p>");
+    })
+    .use("/~" + rootCA, function (req, res) {
+      console.log("Downloading " + rootCA);
+
+      res.writeHead(200, {
+        "Content-Type": "application/x-x509-ca-cert",
+        "Content-Disposition": "attachment;filename=" + rootCA
+      });
+      res.end(fs.readFileSync(path.join(__dirname, "https/" + rootCA), {encoding:null}));
+    })
+    .use("/favicon.ico", function (req, res) {
+      res.writeHead(200, {
+        "Content-Type": "image/x-icon"
+      });
+      res.end(fs.readFileSync(path.join(__dirname, "assets/favicon.ico"), {encoding:null}));
     })
     .use(function (req, res, next) {
       req.url = decodeURI(req.url);
@@ -49,18 +71,14 @@ function PlugBase() {
         var urlLib = require("url");
         var QUERY = require("querystring");
 
-        req.body = {};
-
+        req.query = {};
         var _get = urlLib.parse(req.url).path.match(/([^\?])\?[^\?].*$/);
         if (_get && _get[0]) {
-          req.body = QUERY.parse(_get[0].slice(2));
+          req.query = QUERY.parse(_get[0].slice(2));
         }
 
         buffer = Buffer.concat(buffer);
-        var post = QUERY.parse(buffer.toString());
-        for (var k in post) {
-          req.body[k] = post[k];
-        }
+        req.body = QUERY.parse(buffer.toString());
 
         next();
       });
@@ -84,8 +102,14 @@ PlugBase.prototype = {
     });
     return this;
   },
-  use: function (middleware) {
-    this.middlewares.push(middleware);
+  use: function (router, middleware) {
+    if (typeof router == "function") {
+      this.middlewares.push([router]);
+    }
+    else if (typeof middleware == "function") {
+      this.middlewares.push([router, middleware]);
+    }
+
     return this;
   },
   listen: function (http_port, https_port, cb) {
@@ -132,9 +156,11 @@ PlugBase.prototype = {
     var self = this;
 
     require("flex-hosts")(this.hostsMap, this.config_dir, function (hosts) {
+      var util = require("util");
+
       self.middlewares.forEach(function (middleware) {
-        if (typeof middleware == "function") {
-          self.app.use(middleware);
+        if (util.isArray(middleware)) {
+          self.app.use.apply(self.app, middleware);
         }
         else if (typeof middleware.module == "function") {
           middleware.params.hosts = hosts;

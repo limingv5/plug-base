@@ -1,6 +1,6 @@
 {
   "name": "plug-base",
-  "version": "0.1.2",
+  "version": "0.2.0",
   "description": "Plug Base for FE-Dev",
   "main": "index.js",
   "repository": "https://github.com/limingv5/plug-base.git",
@@ -20,6 +20,8 @@
     "connect": "~3.3.5",
     "connect-timeout": "~1.6.1",
     "flex-hosts": "~0.3.0",
+    "ip": "~0.3.2",
+    "qrcode-npm": "~0.0.3",
     "serve-index": "~1.6.3",
     "serve-static": "~1.9.2"
   }
