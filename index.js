@@ -1,6 +1,7 @@
 var fs = require("fs");
 var path = require("path");
 var mime = require("mime");
+var chalk = require("chalk");
 
 try {
   var pkg = require(__dirname + "/package.json");
@@ -26,6 +27,7 @@ function PlugBase() {
   this.middlewares = [];
 
   var rootCA = "rootCA.crt";
+  var favicon = "favicon.ico";
 
   this.app
     .use(require("connect-timeout")("5s"))
@@ -52,13 +54,13 @@ function PlugBase() {
         "Content-Type": mime.lookup(rootCA),
         "Content-Disposition": "attachment;filename=" + rootCA
       });
-      res.end(fs.readFileSync(path.join(__dirname, "https/" + rootCA), {encoding: null}));
+      res.end(fs.readFileSync(path.join(__dirname, "https", rootCA), {encoding: null}));
     })
-    .use("/favicon.ico", function (req, res) {
+    .use('/' + favicon, function (req, res) {
       res.writeHead(200, {
-        "Content-Type": mime.lookup("favicon.ico")
+        "Content-Type": mime.lookup(favicon)
       });
-      res.end(fs.readFileSync(path.join(__dirname, "assets/favicon.ico"), {encoding: null}));
+      res.end(fs.readFileSync(path.join(__dirname, "assets", favicon), {encoding: null}));
     })
     .use(function (req, res, next) {
       req.url = decodeURI(req.url);
@@ -154,12 +156,18 @@ PlugBase.prototype = {
     }
 
     shell && exec(shell, function () {
-      console.log("The rootCA is installed!");
+      console.log(chalk.green("The rootCA is installed!"));
     });
 
     var self = this;
 
-    require("flex-hosts")(this.hostsMap, this.config_dir, function (hosts) {
+    require("flex-hosts")(this.hostsMap, this.config_dir, function (err, hosts) {
+      if (err) {
+        console.log(chalk.red("DNS lookup Error!"));
+        console.log("You need to set the %s field by yourself!\n", chalk.yellow("hosts"));
+        hosts = {};
+      }
+
       var util = require("util");
 
       self.middlewares.forEach(function (middleware) {
@@ -182,16 +190,13 @@ PlugBase.prototype = {
           }
         }))
         .listen(http_port, function () {
-          console.log("HTTP Server running at http://127.0.0.1:" + http_port);
+          console.log("HTTP Server running at", chalk.cyan("http://127.0.0.1:" + http_port));
           typeof cb == "function" && cb(http_port);
         });
 
       if (https_port) {
-        var https = require("https");
-        var tls = require("tls");
-        var crypto = require("crypto");
-        var createSecureContext = tls.createSecureContext || crypto.createSecureContext;
-        https
+        var createSecureContext = require("tls").createSecureContext || require("crypto").createSecureContext;
+        require("https")
           .createServer({
             SNICallback: function (domain, SNICallback) {
               var certPath = path.join(serverPath, domain);
@@ -223,7 +228,7 @@ PlugBase.prototype = {
             ca: fs.readFileSync(rootCA, "utf-8")
           }, self.app)
           .listen(https_port, function () {
-            console.log("HTTPS Server running at https://127.0.0.1:" + https_port);
+            console.log("HTTPS Server running at", chalk.cyan("https://127.0.0.1:" + https_port));
             typeof cb == "function" && cb(https_port);
           });
       }
