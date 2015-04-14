@@ -133,6 +133,7 @@ PlugBase.prototype = {
       }
 
       var util = require("util");
+      var defaultHost = "127.0.0.1";
 
       self.middlewares.forEach(function (middleware) {
         if (util.isArray(middleware)) {
@@ -154,7 +155,7 @@ PlugBase.prototype = {
           }
         }))
         .listen(http_port, function () {
-          console.log("HTTP Server running at", chalk.cyan("http://127.0.0.1:" + http_port));
+          console.log("HTTP Server running at", chalk.cyan("http://" + defaultHost + ':' + http_port));
           typeof cb == "function" && cb(http_port);
         });
 
@@ -166,85 +167,105 @@ PlugBase.prototype = {
         var genCert = HTTPS_DIR + "/gen-cer";
         var rootCA = path.join(HTTPS_DIR, "rootCA.crt");
         var serverPath = path.join(HTTPS_DIR, ".sni");
-        var defaultCert = path.join(HTTPS_DIR, ".localhost/localhost");
 
         if (!fs.existsSync(serverPath)) {
           fs.mkdirSync(serverPath);
           fs.chmod(serverPath, 0777);
         }
-        fs.readdir(serverPath, function (err, files) {
-          if (!err) {
-            files.forEach(function (file) {
-              fs.unlink(path.join(serverPath, file));
-            });
-          }
-        });
 
-        var shell;
+        // init CMD
+        var InstallRootCA;
         if (platform.match(/^win/i)) {
-          shell = "certutil -addstore -f \"ROOT\" new-root-certificate.crt";
+          InstallRootCA = "certutil -addstore -f \"ROOT\" new-root-certificate.crt";
           genCert += ".cmd";
         }
         else if (platform.match(/darwin/i)) {
-          shell = "sudo security add-trusted-cert -d -r trustRoot -k /Library/Keychains/System.keychain " + rootCA;
+          InstallRootCA = "sudo security add-trusted-cert -d -r trustRoot -k /Library/Keychains/System.keychain " + rootCA;
         }
         else {
           // TODO: Linux
         }
-
-        shell && exec(shell, function () {
+        InstallRootCA && exec(InstallRootCA, function () {
           console.log(chalk.green("The rootCA is installed!"));
         });
 
-        require("https")
-          .createServer({
-            SNICallback: function (domain, SNICallback) {
-              var createSecureContext = require("tls").createSecureContext;
+        exec([genCert, defaultHost, serverPath].join(' '), function (err) {
+          if (!err) {
+            var default_key = path.join(serverPath, defaultHost + ".key");
+            var default_crt = path.join(serverPath, defaultHost + ".crt");
 
-              if (!(typeof SNICallback == "function" && createSecureContext)) {
-                console.log(
-                  "Your Node.js %s support %s, please %s your Node.js >= 0.12",
-                  chalk.yellow("IS NOT"),
-                  chalk.magenta("Async SNI"),
-                  chalk.green("UPDATE")
-                );
-                return;
-              }
+            fs.chmod(default_key, 0777);
+            fs.chmod(default_crt, 0777);
 
-              var certPath = (domain == "localhost") ? defaultCert : path.join(serverPath, domain);
-              var key = certPath + ".key";
-              var crt = certPath + ".crt";
+            function log(domain) {
+              console.log("HTTPS Server running at", chalk.yellow("https://" + domain + ':' + https_port));
+            }
 
-              if (fs.existsSync(key) && fs.existsSync(crt)) {
-                SNICallback(null, createSecureContext({
-                  key: fs.readFileSync(key, "utf-8"),
-                  cert: fs.readFileSync(crt, "utf-8")
-                }));
-              }
-              else {
-                exec([genCert, domain, serverPath].join(' '), function (err) {
-                  if (!err) {
+            require("https")
+              .createServer({
+                SNICallback: function (domain, SNICallback) {
+                  var createSecureContext = require("tls").createSecureContext;
+
+                  if (!(typeof SNICallback == "function" && createSecureContext)) {
+                    console.log(
+                      "Your Node.js %s support %s, please %s your Node.js >= 0.11",
+                      chalk.yellow("IS NOT"),
+                      chalk.magenta("Async SNI"),
+                      chalk.green("UPDATE")
+                    );
+                    return;
+                  }
+
+                  var certPath = path.join(serverPath, domain);
+                  var key = certPath + ".key";
+                  var crt = certPath + ".crt";
+
+                  if (fs.existsSync(key) && fs.existsSync(crt)) {
                     SNICallback(null, createSecureContext({
                       key: fs.readFileSync(key, "utf-8"),
                       cert: fs.readFileSync(crt, "utf-8")
                     }));
-                    fs.chmod(key, 0777);
-                    fs.chmod(crt, 0777);
                   }
                   else {
-                    SNICallback(err);
+                    exec([genCert, domain, serverPath].join(' '), function (err) {
+                      if (!err) {
+                        SNICallback(null, createSecureContext({
+                          key: fs.readFileSync(key, "utf-8"),
+                          cert: fs.readFileSync(crt, "utf-8")
+                        }));
+                        fs.chmod(key, 0777);
+                        fs.chmod(crt, 0777);
+                        log(domain);
+                      }
+                      else {
+                        SNICallback(err);
+                      }
+                    });
                   }
-                });
-              }
-            },
-            key: fs.readFileSync(defaultCert + ".key", "utf-8"),
-            cert: fs.readFileSync(defaultCert + ".crt", "utf-8"),
-            ca: fs.readFileSync(rootCA, "utf-8")
-          }, self.app)
-          .listen(https_port, function () {
-            console.log("HTTPS Server running at", chalk.cyan("https://127.0.0.1:" + https_port));
-            typeof cb == "function" && cb(https_port);
-          });
+                },
+                key: fs.readFileSync(default_key, "utf-8"),
+                cert: fs.readFileSync(default_crt, "utf-8"),
+                ca: fs.readFileSync(rootCA, "utf-8")
+              }, self.app)
+              .listen(https_port, function () {
+                typeof cb == "function" && cb(https_port);
+                log(defaultHost);
+              });
+
+            var domains = Object.keys(hosts);
+            domains.push("localhost");
+            domains.forEach(function (domain) {
+              exec([genCert, domain, serverPath].join(' '), function () {
+                fs.chmod(path.join(serverPath, domain + ".key"), 0777);
+                fs.chmod(path.join(serverPath, domain + ".crt"), 0777);
+                log(domain);
+              });
+            });
+          }
+          else {
+            console.log(err);
+          }
+        });
       }
     });
   }
