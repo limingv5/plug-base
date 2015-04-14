@@ -36,15 +36,28 @@ server
 
 `req.body` -- POST Request Fields
 
-## Mobile Support
+## 根证书生效
 
-使用桌面浏览器访问`http://127.0.0.1/~`，其显示了一个二维码。
-移动设备扫描该二维码并下载根证书安装于设备中，以支持移动设备调试HTTPs页面。
+> 访问`http://127.0.0.1/~`，该页面中显示了一个根证书二维码以及根证书下载地址。
 
-* `http://127.0.0.1/~rootCA.crt`是根证书的实际下载地址。
+### Mobile Support
+
+使用移动设备扫描二维码并下载根证书安装于设备中，以支持移动设备调试HTTPs页面。
+
+### Firefox Support
+
+Firefox有其自身的根证书信任机制，需要另行导入根证书。
+通过点击下载地址或直接访问`http://127.0.0.1/~rootCA.crt`进行下载并导入Firefox。
+
+## HTTPs
+
+HTTPs调试需要异步SNI的支持，如需开启HTTPs服务，请将Node.js升级至0.12.x及以上。
 
 ## OS Support
 
-Mac OSX, Windows, Linux
+Mac OS X, Windows, Linux
 
-Tell me the bugs Via `limingv5[#]gmail.com`
+
+## Issues & Bugs
+
+Tell me Via limingv5[#]gmail.com

@@ -18,6 +18,6 @@ openssl rsa -in %outputPath%/%domain%.key -passin pass:%password% -out %outputPa
 
 openssl req -new -key %outputPath%/%domain%.key -out %outputPath%/%domain%.csr -passin pass:%password% -subj /C=%country%/ST=%state%/L=%locality%/O=%organization%/OU=%organizationalunit%/CN=%commonname%/emailAddress=%email%
 
-openssl x509 -req -days 3650 -in %outputPath%/%domain%.csr -CA %outputPath%/../rootCA.crt -CAkey %outputPath%/../rootCA.key -CAcreateserial -out %outputPath%/%domain%.crt
+openssl x509 -req -days 36500 -in %outputPath%/%domain%.csr -CA %outputPath%/../rootCA.crt -CAkey %outputPath%/../rootCA.key -CAcreateserial -out %outputPath%/%domain%.crt
 
 del %outputPath%/%domain%.csr

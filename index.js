@@ -123,42 +123,6 @@ PlugBase.prototype = {
       https_port = null;
     }
 
-    var exec = require("child_process").exec;
-    var platform = require("os").platform();
-
-    var HTTPS_DIR = path.join(__dirname, "https");
-    var rootCA = path.join(HTTPS_DIR, "rootCA.crt");
-    var serverPath = path.join(HTTPS_DIR, ".sni");
-
-    if (!fs.existsSync(serverPath)) {
-      fs.mkdirSync(serverPath);
-      fs.chmod(serverPath, 0777);
-    }
-    fs.readdir(serverPath, function (err, files) {
-      if (!err) {
-        files.forEach(function (file) {
-          fs.unlink(path.join(serverPath, file));
-        });
-      }
-    });
-
-    var genCert = HTTPS_DIR + "/gen-cer";
-    var shell;
-    if (platform.match(/^win/i)) {
-      shell = "certutil -addstore -f \"ROOT\" new-root-certificate.crt";
-      genCert += ".cmd";
-    }
-    else if (platform.match(/darwin/i)) {
-      shell = "sudo security add-trusted-cert -d -r trustRoot -k /Library/Keychains/System.keychain " + rootCA;
-    }
-    else {
-      // TODO: Linux
-    }
-
-    shell && exec(shell, function () {
-      console.log(chalk.green("The rootCA is installed!"));
-    });
-
     var self = this;
 
     require("flex-hosts")(this.hostsMap, this.config_dir, function (err, hosts) {
@@ -195,11 +159,59 @@ PlugBase.prototype = {
         });
 
       if (https_port) {
-        var createSecureContext = require("tls").createSecureContext || require("crypto").createSecureContext;
+        var exec = require("child_process").exec;
+        var platform = require("os").platform();
+
+        var HTTPS_DIR = path.join(__dirname, "https");
+        var genCert = HTTPS_DIR + "/gen-cer";
+        var rootCA = path.join(HTTPS_DIR, "rootCA.crt");
+        var serverPath = path.join(HTTPS_DIR, ".sni");
+        var defaultCert = path.join(HTTPS_DIR, ".localhost/localhost");
+
+        if (!fs.existsSync(serverPath)) {
+          fs.mkdirSync(serverPath);
+          fs.chmod(serverPath, 0777);
+        }
+        fs.readdir(serverPath, function (err, files) {
+          if (!err) {
+            files.forEach(function (file) {
+              fs.unlink(path.join(serverPath, file));
+            });
+          }
+        });
+
+        var shell;
+        if (platform.match(/^win/i)) {
+          shell = "certutil -addstore -f \"ROOT\" new-root-certificate.crt";
+          genCert += ".cmd";
+        }
+        else if (platform.match(/darwin/i)) {
+          shell = "sudo security add-trusted-cert -d -r trustRoot -k /Library/Keychains/System.keychain " + rootCA;
+        }
+        else {
+          // TODO: Linux
+        }
+
+        shell && exec(shell, function () {
+          console.log(chalk.green("The rootCA is installed!"));
+        });
+
         require("https")
           .createServer({
             SNICallback: function (domain, SNICallback) {
-              var certPath = path.join(serverPath, domain);
+              var createSecureContext = require("tls").createSecureContext;
+
+              if (!(typeof SNICallback == "function" && createSecureContext)) {
+                console.log(
+                  "Your Node.js %s support %s, please %s your Node.js >= 0.12",
+                  chalk.yellow("IS NOT"),
+                  chalk.magenta("Async SNI"),
+                  chalk.green("UPDATE")
+                );
+                return;
+              }
+
+              var certPath = (domain == "localhost") ? defaultCert : path.join(serverPath, domain);
               var key = certPath + ".key";
               var crt = certPath + ".crt";
 
@@ -225,6 +237,8 @@ PlugBase.prototype = {
                 });
               }
             },
+            key: fs.readFileSync(defaultCert + ".key", "utf-8"),
+            cert: fs.readFileSync(defaultCert + ".crt", "utf-8"),
             ca: fs.readFileSync(rootCA, "utf-8")
           }, self.app)
           .listen(https_port, function () {
