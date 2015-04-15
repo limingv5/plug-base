@@ -3,21 +3,16 @@ var path = require("path");
 var mime = require("mime");
 var chalk = require("chalk");
 
-try {
-  var pkg = require(__dirname + "/package.json");
-
-  require("check-update")({
-    packageName: pkg.name,
-    packageVersion: pkg.version,
-    isCLI: process.title == "node"
-  }, function (err, latestVersion, defaultMessage) {
-    if (!err && pkg.version < latestVersion) {
-      console.log(defaultMessage);
-    }
-  });
-}
-catch (e) {
-}
+var pkg = require(__dirname + "/package.json");
+require("check-update")({
+  packageName: pkg.name,
+  packageVersion: pkg.version,
+  isCLI: process.title == "node"
+}, function (err, latestVersion, defaultMessage) {
+  if (!err && pkg.version < latestVersion) {
+    console.log(defaultMessage);
+  }
+});
 
 function PlugBase() {
   this.app = require("connect")();
