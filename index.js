@@ -169,7 +169,6 @@ PlugBase.prototype = {
         }
 
         // init CMD
-
         var InstallRootCA;
         if (platform.match(/^win/i)) {
           InstallRootCA = "certutil -addstore -f \"ROOT\" new-root-certificate.crt";
