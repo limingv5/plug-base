@@ -159,9 +159,9 @@ PlugBase.prototype = {
         var platform = require("os").platform();
 
         var HTTPS_DIR = path.join(__dirname, "https");
-        var genCert = HTTPS_DIR + "/gen-cer";
         var rootCA = path.join(HTTPS_DIR, "rootCA.crt");
         var serverPath = path.join(HTTPS_DIR, ".sni");
+        var genCert = HTTPS_DIR + "/gen-cer.sh";
 
         if (!fs.existsSync(serverPath)) {
           fs.mkdirSync(serverPath);
@@ -169,10 +169,11 @@ PlugBase.prototype = {
         }
 
         // init CMD
+
         var InstallRootCA;
         if (platform.match(/^win/i)) {
           InstallRootCA = "certutil -addstore -f \"ROOT\" new-root-certificate.crt";
-          genCert += ".cmd";
+          genCert = HTTPS_DIR + "/gen-cer.bat";
         }
         else if (platform.match(/darwin/i)) {
           InstallRootCA = "sudo security add-trusted-cert -d -r trustRoot -k /Library/Keychains/System.keychain " + rootCA;
