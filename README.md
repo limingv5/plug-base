@@ -8,13 +8,16 @@ server.root("src");
 // 设置配置文件目录
 server.config(".config");
 
-// 设置hosts映射关系
-server.hosts({
+// 设置hosts映射关系（将修改hosts）
+server.enableHosts({
   "127.0.0.1": [
     "g.cdn.com",
     "a.cdn.com"
   ]
 });
+
+// 不修改hosts
+server.disableHosts();
 
 server
   // 普通中间件

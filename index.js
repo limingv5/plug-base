@@ -19,6 +19,7 @@ function PlugBase() {
   this.config_dir = null;
   this.rootdir = "src";
   this.hostsMap = {};
+  this.hostsFlag = true;
   this.middlewares = [];
 
   var rootCA = "rootCA.crt";
@@ -91,7 +92,16 @@ PlugBase.prototype = {
     this.rootdir = rootdir;
   },
   hosts: function (hosts) {
-    this.hostsMap = hosts;
+    this.hostsMap = hosts || {};
+  },
+  enableHosts: function (hosts) {
+    this.hostsFlag = true;
+    if (hosts) {
+      this.hosts(hosts);
+    }
+  },
+  disableHosts: function () {
+    this.hostsFlag = false;
   },
   plug: function (module, params) {
     this.middlewares.push({
@@ -120,13 +130,7 @@ PlugBase.prototype = {
 
     var self = this;
 
-    require("flex-hosts")(this.hostsMap, this.config_dir, function (err, hosts) {
-      if (err) {
-        console.log(chalk.red("DNS lookup Error!"));
-        console.log("You need to set the %s field by yourself!\n", chalk.yellow("hosts"));
-        hosts = {};
-      }
-
+    function startServer(hosts) {
       var util = require("util");
       var defaultHost = "127.0.0.1";
 
@@ -262,7 +266,22 @@ PlugBase.prototype = {
           }
         });
       }
-    });
+    }
+
+    if (this.hostsFlag) {
+      require("flex-hosts")(this.hostsMap, this.config_dir, function (err, hosts) {
+        if (err) {
+          console.log(chalk.red("DNS lookup Error!"));
+          console.log("You need to set the %s field by yourself!\n", chalk.yellow("hosts"));
+          hosts = {};
+        }
+
+        startServer(hosts);
+      });
+    }
+    else {
+      startServer({});
+    }
   }
 };
 

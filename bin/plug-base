@@ -1,0 +1,43 @@
+#!/usr/bin/env node
+
+var path = require("path");
+var server = require("../index");
+var argv = require("yargs").argv;
+
+server.root(path.join(process.cwd(), argv.rootdir || ''));
+
+var params = {};
+for (var k in argv) {
+  if (['_', "$0", "flex-combo", "flexCombo", "essi"].indexOf(k) == -1) {
+    params[k] = argv[k];
+  }
+}
+
+if (!argv._.length) {
+  server.disableHosts();
+}
+else {
+  server.enableHosts({
+    "127.0.0.1": argv._
+  });
+}
+
+if (argv.flexCombo) {
+  try {
+    server.plug(require(path.join(__dirname, "../../flex-combo")), params);
+  }
+  catch (e) {
+    console.log(e);
+  }
+}
+
+if (argv.essi) {
+  try {
+    server.plug(require(path.join(__dirname, "../../essi")), params);
+  }
+  catch (e) {
+    console.log(e);
+  }
+}
+
+server.listen(80, 443);
