@@ -4,7 +4,7 @@ var path = require("path");
 var server = require("../index");
 var argv = require("yargs").argv;
 
-server.root(path.join(process.cwd(), argv.rootdir || ''));
+server.root(argv.rootdir || "./");
 
 var params = {};
 for (var k in argv) {

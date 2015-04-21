@@ -16,11 +16,13 @@ require("check-update")({
 
 function PlugBase() {
   this.app = require("connect")();
-  this.config_dir = null;
-  this.rootdir = "src";
+  this.confdir = null;
+  this.rootdir = null;
   this.hostsMap = {};
   this.hostsFlag = true;
   this.middlewares = [];
+
+  this.root("src");
 
   var rootCA = "rootCA.crt";
   var favicon = "favicon.ico";
@@ -85,11 +87,20 @@ function PlugBase() {
 }
 PlugBase.prototype = {
   constructor: PlugBase,
-  config: function (config_dir) {
-    this.config_dir = config_dir;
+  dir: function (dir) {
+    dir = dir || '';
+    if (dir.indexOf('/') == 0 || /^\w{1}:[\\/].*$/.test(dir)) {
+      return path.normalize(dir);
+    }
+    else {
+      return path.normalize(path.join(process.cwd(), dir));
+    }
+  },
+  config: function (confdir) {
+    this.confdir = this.dir(confdir);
   },
   root: function (rootdir) {
-    this.rootdir = rootdir;
+    this.rootdir = this.dir(rootdir);
   },
   hosts: function (hosts) {
     this.hostsMap = hosts || {};
@@ -141,7 +152,7 @@ PlugBase.prototype = {
         else if (typeof middleware.module == "function") {
           middleware.params.hosts = hosts;
           middleware.params.rootdir = middleware.params.rootdir || self.rootdir;
-          self.app.use(middleware.module(middleware.params, self.config_dir));
+          self.app.use(middleware.module(middleware.params, self.confdir));
         }
       });
 
@@ -269,7 +280,7 @@ PlugBase.prototype = {
     }
 
     if (this.hostsFlag) {
-      require("flex-hosts")(this.hostsMap, this.config_dir, function (err, hosts) {
+      require("flex-hosts")(this.hostsMap, this.confdir, function (err, hosts) {
         if (err) {
           console.log(chalk.red("DNS lookup Error!"));
           console.log("You need to set the %s field by yourself!\n", chalk.yellow("hosts"));
