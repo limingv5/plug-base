@@ -146,13 +146,15 @@ PlugBase.prototype = {
       var defaultHost = "127.0.0.1";
 
       self.middlewares.forEach(function (middleware) {
-        if (util.isArray(middleware)) {
-          self.app.use.apply(self.app, middleware);
-        }
-        else if (typeof middleware.module == "function") {
+        var module = middleware.module;
+        if (module && typeof module == "function") {
           middleware.params.hosts = hosts;
           middleware.params.rootdir = middleware.params.rootdir || self.rootdir;
-          self.app.use(middleware.module(middleware.params, self.confdir));
+
+          self.app.use(module(middleware.params, self.confdir));
+        }
+        else if (util.isArray(middleware)) {
+          self.app.use.apply(self.app, middleware);
         }
       });
 
