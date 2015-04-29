@@ -84,7 +84,7 @@ function PlugBase() {
         next();
       });
     });
-}
+};
 PlugBase.prototype = {
   constructor: PlugBase,
   dir: function (dir) {
@@ -165,11 +165,13 @@ PlugBase.prototype = {
           setHeaders: function (res, path) {
             res.setHeader("Content-Type", mime.lookup(path));
           }
-        }))
-        .listen(http_port, function () {
-          console.log("HTTP Server running at", chalk.cyan("http://" + defaultHost + ':' + http_port));
-          typeof cb == "function" && cb(http_port);
-        });
+        }));
+
+      var http = require("http").createServer(self.app).listen(http_port, function () {
+        console.log("HTTP Server running at", chalk.cyan("http://" + defaultHost + ':' + http_port));
+        typeof cb == "function" && cb(http_port);
+      });
+      self.app.emit("http", http);
 
       if (https_port) {
         var exec = require("child_process").exec;
@@ -213,7 +215,7 @@ PlugBase.prototype = {
               console.log("HTTPS Server running at", chalk.yellow("https://" + domain + ':' + https_port));
             }
 
-            require("https")
+            var https = require("https")
               .createServer({
                 SNICallback: function (domain, SNICallback) {
                   var createSecureContext = require("tls").createSecureContext;
@@ -263,6 +265,7 @@ PlugBase.prototype = {
                 typeof cb == "function" && cb(https_port);
                 log(defaultHost);
               });
+            self.app.emit("https", https);
 
             var domains = Object.keys(hosts);
             domains.push("localhost");
