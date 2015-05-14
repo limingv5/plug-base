@@ -2,6 +2,7 @@ var fs = require("fs");
 var path = require("path");
 var mime = require("mime");
 var chalk = require("chalk");
+var IPAddress = require("ip").address();
 
 var pkg = require(__dirname + "/package.json");
 var starter = process.argv[1];
@@ -30,23 +31,32 @@ function PlugBase() {
   var rootCA = "rootCA.crt";
   var favicon = "favicon.ico";
 
-  this.app
-    .use(require("connect-timeout")("5s"))
-    .use("/~", function (req, res) {
-      res.writeHead(200, {
-        "Content-Type": "text/html"
-      });
-      res.write(
-        "<style>body{text-align: center}</style>" +
-        "<h1>Scan && Install the Root-CA in your mobile devices:</h1>"
-      );
+  function createQRPage(res, text, urlSuffix) {
+    res.writeHead(200, {
+      "Content-Type": "text/html;charset=utf-8"
+    });
+    res.write(
+      "<meta charset='utf-8'><style>body{text-align: center}</style>" +
+      "<h1>" + text + "</h1>"
+    );
 
-      var CAUrl = "http://" + require("ip").address() + "/~" + rootCA;
-      var qr = require("qrcode-npm").qrcode(4, 'M');
-      qr.addData(CAUrl);
-      qr.make();
-      res.write(qr.createImgTag(4));
-      res.end("<p><a href='" + CAUrl + "'>" + CAUrl + "</a></p>");
+    var Url = "http://" + IPAddress + "/~" + urlSuffix;
+    var qr = require("qrcode-npm").qrcode(4, 'M');
+    qr.addData(Url);
+    qr.make();
+    res.write(qr.createImgTag(4));
+    res.write("<p><a href='" + Url + "'>" + Url + "</a></p>");
+  }
+
+  this.app
+    .use(require("connect-timeout")("10s"))
+    .use("/~hosts", function (req, res) {
+      createQRPage(res, "Scan with your devices:", "wifi-config");
+      res.end('<form method="get" action="/~wifi-config"><input name="client" type="text" placeholder="Enter Client IP"><input type="submit" value="提交"></form>')
+    })
+    .use("/~https", function (req, res) {
+      createQRPage(res, "Scan && Install the Root-CA in your devices:", rootCA);
+      res.end();
     })
     .use("/~" + rootCA, function (req, res) {
       console.log("Downloading " + rootCA);
@@ -144,9 +154,13 @@ PlugBase.prototype = {
 
     var self = this;
 
-    function startServer(hosts) {
+    function startServer(hosts, cloudHosts) {
       var util = require("util");
       var defaultHost = "127.0.0.1";
+
+      if (typeof cloudHosts == "function") {
+        self.app.use("/~wifi-config", cloudHosts);
+      }
 
       self.middlewares.forEach(function (middleware) {
         var module = middleware.module;
@@ -295,7 +309,7 @@ PlugBase.prototype = {
           hosts = {};
         }
 
-        startServer(hosts);
+        startServer(hosts, this.cloudHosts(IPAddress));
       });
     }
     else {
