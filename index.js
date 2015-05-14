@@ -18,6 +18,23 @@ if (!new RegExp("clam$").test(starter)) {
   });
 }
 
+function createQRPage(res, text, urlSuffix) {
+  res.writeHead(200, {
+    "Content-Type": "text/html;charset=utf-8"
+  });
+  res.write(
+    "<meta charset='utf-8'><style>body{text-align: center}</style>" +
+    "<h1>" + text + "</h1>"
+  );
+
+  var Url = "http://" + IPAddress + "/~" + urlSuffix;
+  var qr = require("qrcode-npm").qrcode(4, 'M');
+  qr.addData(Url);
+  qr.make();
+  res.write(qr.createImgTag(4));
+  res.write("<p><a href='" + Url + "'>" + Url + "</a></p>");
+}
+
 function PlugBase() {
   this.app = require("connect")();
   this.confdir = null;
@@ -31,29 +48,8 @@ function PlugBase() {
   var rootCA = "rootCA.crt";
   var favicon = "favicon.ico";
 
-  function createQRPage(res, text, urlSuffix) {
-    res.writeHead(200, {
-      "Content-Type": "text/html;charset=utf-8"
-    });
-    res.write(
-      "<meta charset='utf-8'><style>body{text-align: center}</style>" +
-      "<h1>" + text + "</h1>"
-    );
-
-    var Url = "http://" + IPAddress + "/~" + urlSuffix;
-    var qr = require("qrcode-npm").qrcode(4, 'M');
-    qr.addData(Url);
-    qr.make();
-    res.write(qr.createImgTag(4));
-    res.write("<p><a href='" + Url + "'>" + Url + "</a></p>");
-  }
-
   this.app
     .use(require("connect-timeout")("10s"))
-    .use("/~hosts", function (req, res) {
-      createQRPage(res, "Scan with your devices:", "wifi-config");
-      res.end('<form method="get" action="/~wifi-config"><input name="client" type="text" placeholder="Enter Client IP"><input type="submit" value="提交"></form>')
-    })
     .use("/~https", function (req, res) {
       createQRPage(res, "Scan && Install the Root-CA in your devices:", rootCA);
       res.end();
@@ -159,7 +155,13 @@ PlugBase.prototype = {
       var defaultHost = "127.0.0.1";
 
       if (typeof cloudHosts == "function") {
-        self.app.use("/~wifi-config", cloudHosts);
+        var jump = "wifi-config";
+        self.app
+          .use("/~nat", function (req, res) {
+            createQRPage(res, "Scan with your devices:", jump);
+            res.end('<form method="get" action="/~' + jump + '"><input name="client" type="text" placeholder="Enter Client IP"><input type="submit" value="提交"></form>')
+          })
+          .use("/~" + jump, cloudHosts);
       }
 
       self.middlewares.forEach(function (middleware) {
