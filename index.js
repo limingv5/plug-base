@@ -1,8 +1,9 @@
 var fs = require("fs");
 var path = require("path");
 var mime = require("mime");
+var net = require("net");
 var chalk = require("chalk");
-var IPAddress = require("ip").address();
+var ipLib = require("ip");
 
 var pkg = require(__dirname + "/package.json");
 var starter = process.argv[1];
@@ -16,23 +17,6 @@ if (!new RegExp("clam$").test(starter)) {
       console.log(defaultMessage);
     }
   });
-}
-
-function createQRPage(res, text, urlSuffix) {
-  res.writeHead(200, {
-    "Content-Type": "text/html;charset=utf-8"
-  });
-  res.write(
-    "<meta charset='utf-8'><style>body{text-align: center}</style>" +
-    "<h1>" + text + "</h1>"
-  );
-
-  var Url = "http://" + IPAddress + "/~" + urlSuffix;
-  var qr = require("qrcode-npm").qrcode(4, 'M');
-  qr.addData(Url);
-  qr.make();
-  res.write(qr.createImgTag(4));
-  res.write("<p><a href='" + Url + "'>" + Url + "</a></p>");
 }
 
 function PlugBase() {
@@ -51,8 +35,20 @@ function PlugBase() {
   this.app
     .use(require("connect-timeout")("10s"))
     .use("/~https", function (req, res) {
-      createQRPage(res, "Scan && Install the Root-CA in your devices:", rootCA);
-      res.end();
+      res.writeHead(200, {
+        "Content-Type": "text/html;charset=utf-8"
+      });
+      res.write(
+        "<meta charset='utf-8'><style>body{text-align: center}</style>" +
+        "<h1>Scan && Install the Root-CA in your devices:</h1>"
+      );
+
+      var Url = "http://" + ipLib.address() + "/~" + rootCA;
+      var qr = require("qrcode-npm").qrcode(4, 'M');
+      qr.addData(Url);
+      qr.make();
+      res.write(qr.createImgTag(4));
+      res.end("<p><a href='" + Url + "'>" + Url + "</a></p>");
     })
     .use("/~" + rootCA, function (req, res) {
       console.log("Downloading " + rootCA);
@@ -72,6 +68,12 @@ function PlugBase() {
     .use(function (req, res, next) {
       req.url = decodeURI(req.url);
 
+      var serverIP = ipLib.address();
+      var clientIP = req.connection.remoteAddress.replace(/.+\:/, '');
+      clientIP = (net.isIP(clientIP) && clientIP != "127.0.0.1") ? clientIP : serverIP;
+      req.serverIP = serverIP;
+      req.clientIP = clientIP;
+
       var buffer = [];
       req.on("data", function (chunk) {
         buffer.push(chunk);
@@ -79,7 +81,7 @@ function PlugBase() {
 
       req.on("end", function () {
         var urlLib = require("url");
-        var QUERY = require("querystring");
+        var QUERY = require("qs");
 
         req.query = {};
         var _get = urlLib.parse(req.url).path.match(/([^\?])\?[^\?].*$/);
@@ -150,19 +152,9 @@ PlugBase.prototype = {
 
     var self = this;
 
-    function startServer(hosts, cloudHosts) {
+    function startServer(hosts) {
       var util = require("util");
       var defaultHost = "127.0.0.1";
-
-      if (typeof cloudHosts == "function") {
-        var jump = "wifi-config";
-        self.app
-          .use("/~nat", function (req, res) {
-            createQRPage(res, "Scan with your devices:", jump);
-            res.end('<form method="get" action="/~' + jump + '"><input name="client" type="text" placeholder="Enter Client IP"><input type="submit" value="提交"></form>')
-          })
-          .use("/~" + jump, cloudHosts);
-      }
 
       self.middlewares.forEach(function (middleware) {
         var module = middleware.module;
@@ -311,7 +303,7 @@ PlugBase.prototype = {
           hosts = {};
         }
 
-        startServer(hosts, this.cloudHosts(IPAddress));
+        startServer(hosts);
       });
     }
     else {
