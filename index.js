@@ -296,11 +296,7 @@ PlugBase.prototype = {
     }
 
     if (this.hostsFlag) {
-      var confFile = null;
-      if (this.confdir) {
-        confFile = path.join(this.confdir, pkg.name + ".json");
-      }
-      require("flex-hosts")(this.hostsMap, confFile, function (err, hosts) {
+      require("flex-hosts")(this.hostsMap, this.confdir, function (err, hosts) {
         if (err) {
           console.log(chalk.red("DNS lookup Error!"));
           console.log("You need to set the %s field by yourself!\n", chalk.yellow("hosts"));
