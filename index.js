@@ -154,7 +154,7 @@ PlugBase.prototype = {
 
     function startServer(hosts) {
       var util = require("util");
-      var defaultHost = "127.0.0.1";
+      var defaultHost = ipLib.address();
 
       self.middlewares.forEach(function (middleware) {
         var module = middleware.module;
@@ -233,7 +233,7 @@ PlugBase.prototype = {
 
                   if (!(typeof SNICallback == "function" && createSecureContext)) {
                     console.log(
-                      "Your Node.js %s support %s, please %s your Node.js >= 0.11",
+                      "Your Node.js %s support %s, please %s your Node.js >= 0.12",
                       chalk.yellow("IS NOT"),
                       chalk.magenta("Async SNI"),
                       chalk.green("UPDATE")
@@ -279,12 +279,11 @@ PlugBase.prototype = {
             self.app.emit("https", https);
 
             var domains = Object.keys(hosts);
-            domains.push("localhost");
+            domains.push("localhost", "127.0.0.1");
             domains.forEach(function (domain) {
               exec([genCert, domain, serverPath].join(' '), function () {
                 fs.chmod(path.join(serverPath, domain + ".key"), 0777);
                 fs.chmod(path.join(serverPath, domain + ".crt"), 0777);
-                log(domain);
               });
             });
           }
