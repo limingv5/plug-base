@@ -27,9 +27,13 @@ function PlugBase() {
   this.hostsFlag = true;
   this.middlewares = [];
 
+  this.HTTPS_DIR = path.join(__dirname, "https");
+  this.serverPath = path.join(this.HTTPS_DIR, ".sni");
+  this.rootCA = path.join(this.HTTPS_DIR, "rootCA.crt");
+
   this.root("src");
 
-  var rootCA = "rootCA.crt";
+  var rootca = path.basename(this.rootCA);
   var favicon = "favicon.ico";
 
   this.app
@@ -43,22 +47,22 @@ function PlugBase() {
         "<h1>Scan && Install the Root-CA in your devices:</h1>"
       );
 
-      var Url = "http://" + ipLib.address() + "/~" + rootCA;
+      var Url = "http://" + ipLib.address() + "/~" + rootca;
       var qr = require("qrcode-npm").qrcode(4, 'M');
       qr.addData(Url);
       qr.make();
       res.write(qr.createImgTag(4));
       res.end("<p><a href='" + Url + "'>" + Url + "</a></p>");
-    })
-    .use("/~" + rootCA, function (req, res) {
-      console.log("Downloading " + rootCA);
+    }.bind(this))
+    .use("/~" + rootca, function (req, res) {
+      console.log("Downloading " + this.rootCA);
 
       res.writeHead(200, {
-        "Content-Type": mime.lookup(rootCA),
-        "Content-Disposition": "attachment;filename=" + rootCA
+        "Content-Type": mime.lookup(rootca),
+        "Content-Disposition": "attachment;filename=" + rootca
       });
-      res.end(fs.readFileSync(path.join(__dirname, "https", rootCA), {encoding: null}));
-    })
+      res.end(fs.readFileSync(this.rootCA, {encoding: null}));
+    }.bind(this))
     .use('/' + favicon, function (req, res) {
       res.writeHead(200, {
         "Content-Type": mime.lookup(favicon)
@@ -115,6 +119,14 @@ PlugBase.prototype = {
   },
   hosts: function (hosts) {
     this.hostsMap = hosts || {};
+  },
+  clearCerts: function () {
+    var self = this;
+    fs.readdir(this.serverPath, function(err, lists) {
+      lists.forEach(function (i) {
+        fs.unlink(path.join(self.serverPath, i));
+      });
+    });
   },
   enableHosts: function (hosts) {
     this.hostsFlag = true;
@@ -188,9 +200,9 @@ PlugBase.prototype = {
         var exec = require("child_process").exec;
         var platform = require("os").platform();
 
-        var HTTPS_DIR = path.join(__dirname, "https");
-        var rootCA = path.join(HTTPS_DIR, "rootCA.crt");
-        var serverPath = path.join(HTTPS_DIR, ".sni");
+        var rootCA = self.rootCA;
+        var serverPath = self.serverPath;
+        var HTTPS_DIR = self.HTTPS_DIR;
         var genCert = HTTPS_DIR + "/gen-cer.sh";
 
         if (!fs.existsSync(serverPath)) {
@@ -311,4 +323,4 @@ PlugBase.prototype = {
   }
 };
 
-exports = module.exports = new PlugBase();
+module.exports = new PlugBase();
