@@ -70,7 +70,12 @@ function PlugBase() {
       res.end(fs.readFileSync(path.join(__dirname, "assets", favicon), {encoding: null}));
     })
     .use(function (req, res, next) {
-      req.url = decodeURI(req.url);
+      try {
+        req.url = decodeURI(req.url);
+      }
+      catch (e) {
+
+      }
 
       var serverIP = ipLib.address();
       var clientIP = req.connection.remoteAddress.replace(/.+\:/, '');
