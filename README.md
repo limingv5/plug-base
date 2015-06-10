@@ -19,6 +19,9 @@ server.enableHosts({
 // 不修改hosts
 server.disableHosts();
 
+// 不作为最简服务器
+server.disableWeb();
+
 server
   // 普通中间件
   .use([router,] function (req, res, next) {
