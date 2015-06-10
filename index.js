@@ -5,105 +5,21 @@ var net = require("net");
 var chalk = require("chalk");
 var ipLib = require("ip");
 
-var pkg = require(__dirname + "/package.json");
-var starter = process.argv[1];
-if (!new RegExp("clam$").test(starter)) {
-  require("check-update")({
-    packageName: pkg.name,
-    packageVersion: pkg.version,
-    isCLI: new RegExp(pkg.name + '$').test(starter)
-  }, function (err, latestVersion, defaultMessage) {
-    if (!err && pkg.version < latestVersion) {
-      console.log(defaultMessage);
-    }
-  });
-}
-
 function PlugBase() {
   this.app = require("connect")();
   this.confdir = null;
   this.rootdir = null;
   this.hostsMap = {};
   this.hostsFlag = true;
+  this.webFlag = true;
   this.middlewares = [];
 
   this.HTTPS_DIR = path.join(__dirname, "https");
   this.serverPath = path.join(this.HTTPS_DIR, ".sni");
   this.rootCA = path.join(this.HTTPS_DIR, "rootCA.crt");
 
-  this.root("src");
-
-  var rootca = path.basename(this.rootCA);
-  var favicon = "favicon.ico";
-
-  this.app
-    .use(require("connect-timeout")("10s"))
-    .use("/~https", function (req, res) {
-      res.writeHead(200, {
-        "Content-Type": "text/html;charset=utf-8"
-      });
-      res.write(
-        "<meta charset='utf-8'><style>body{text-align: center}</style>" +
-        "<h1>Scan && Install the Root-CA in your devices:</h1>"
-      );
-
-      var Url = "http://" + ipLib.address() + "/~" + rootca;
-      var qr = require("qrcode-npm").qrcode(4, 'M');
-      qr.addData(Url);
-      qr.make();
-      res.write(qr.createImgTag(4));
-      res.end("<p><a href='" + Url + "'>" + Url + "</a></p>");
-    }.bind(this))
-    .use("/~" + rootca, function (req, res) {
-      console.log("Downloading " + this.rootCA);
-
-      res.writeHead(200, {
-        "Content-Type": mime.lookup(rootca),
-        "Content-Disposition": "attachment;filename=" + rootca
-      });
-      res.end(fs.readFileSync(this.rootCA, {encoding: null}));
-    }.bind(this))
-    .use('/' + favicon, function (req, res) {
-      res.writeHead(200, {
-        "Content-Type": mime.lookup(favicon)
-      });
-      res.end(fs.readFileSync(path.join(__dirname, "assets", favicon), {encoding: null}));
-    })
-    .use(function (req, res, next) {
-      try {
-        req.url = decodeURI(req.url);
-      }
-      catch (e) {
-
-      }
-
-      var serverIP = ipLib.address();
-      var clientIP = req.connection.remoteAddress.replace(/.+\:/, '');
-      clientIP = (net.isIP(clientIP) && clientIP != "127.0.0.1") ? clientIP : serverIP;
-      req.serverIP = serverIP;
-      req.clientIP = clientIP;
-
-      var buffer = [];
-      req.on("data", function (chunk) {
-        buffer.push(chunk);
-      });
-
-      req.on("end", function () {
-        var urlLib = require("url");
-        var QUERY = require("qs");
-
-        req.query = {};
-        var _get = urlLib.parse(req.url).path.match(/([^\?])\?[^\?].*$/);
-        if (_get && _get[0]) {
-          req.query = QUERY.parse(_get[0].slice(2));
-        }
-
-        buffer = Buffer.concat(buffer);
-        req.body = QUERY.parse(buffer.toString());
-
-        next();
-      });
-    });
+  this.root(__dirname);
+  this.app.use(require("connect-timeout")("60s"));
 }
 PlugBase.prototype = {
   constructor: PlugBase,
@@ -142,6 +58,12 @@ PlugBase.prototype = {
   disableHosts: function () {
     this.hostsFlag = false;
   },
+  enableWeb: function () {
+    this.webFlag = true;
+  },
+  disableWeb: function () {
+    this.webFlag = false;
+  },
   plug: function (module, params) {
     this.middlewares.push({
       module: module,
@@ -169,6 +91,71 @@ PlugBase.prototype = {
 
     var self = this;
 
+    var rootca = path.basename(this.rootCA);
+    this.app
+      .use("/~https", function (req, res) {
+        res.writeHead(200, {
+          "Content-Type": "text/html;charset=utf-8"
+        });
+        res.write(
+          "<meta charset='utf-8'><style>body{text-align: center}</style>" +
+          "<h1>Scan && Install the Root-CA in your devices:</h1>"
+        );
+
+        var Url = "http://" + ipLib.address() + ':' + http_port + "/~" + rootca;
+        var qr = require("qrcode-npm").qrcode(4, 'M');
+        qr.addData(Url);
+        qr.make();
+        res.write(qr.createImgTag(4));
+        res.end("<p><a href='" + Url + "'>" + Url + "</a></p>");
+      }.bind(this))
+      .use("/~" + rootca, function (req, res) {
+        console.log("Downloading " + this.rootCA);
+
+        res.writeHead(200, {
+          "Content-Type": mime.lookup(rootca),
+          "Content-Disposition": "attachment;filename=" + rootca
+        });
+        res.end(fs.readFileSync(this.rootCA, {encoding: null}));
+      }.bind(this));
+
+    if (this.webFlag) {
+      var favicon = "favicon.ico";
+      this.app
+        .use('/' + favicon, function (req, res) {
+          res.writeHead(200, {
+            "Content-Type": mime.lookup(favicon)
+          });
+          res.end(fs.readFileSync(path.join(__dirname, "assets", favicon), {encoding: null}));
+        })
+        .use(function (req, res, next) {
+          try {
+            req.url = decodeURI(req.url);
+          }
+          catch (e) {
+          }
+
+          var serverIP = ipLib.address();
+          var clientIP = req.connection.remoteAddress.replace(/.+\:/, '');
+          clientIP = (net.isIP(clientIP) && clientIP != "127.0.0.1") ? clientIP : serverIP;
+          req.serverIP = serverIP;
+          req.clientIP = clientIP;
+
+          var urlLib = require("url");
+          var QUERY = require("qs");
+
+          req.query = {};
+          var _get = urlLib.parse(req.url).path.match(/([^\?])\?[^\?].*$/);
+          if (_get && _get[0]) {
+            req.query = QUERY.parse(_get[0].slice(2));
+          }
+
+          next();
+        })
+        .use(require("body-parser").urlencoded({extended: true}))
+        .use(require("multer")());
+    }
+
     function startServer(hosts) {
       var util = require("util");
       var defaultHost = ipLib.address();
@@ -186,14 +173,16 @@ PlugBase.prototype = {
         }
       });
 
-      self.app
-        .use(require("serve-index")(self.rootdir, {icons: true}))
-        .use(require("serve-static")(self.rootdir, {
-          index: false,
-          setHeaders: function (res, path) {
-            res.setHeader("Content-Type", mime.lookup(path));
-          }
-        }));
+      if (self.webFlag) {
+        self.app
+          .use(require("serve-index")(self.rootdir, {icons: true}))
+          .use(require("serve-static")(self.rootdir, {
+            index: false,
+            setHeaders: function (res, path) {
+              res.setHeader("Content-Type", mime.lookup(path));
+            }
+          }));
+      }
 
       var http = require("http").createServer(self.app).listen(http_port, function () {
         console.log("HTTP Server running at", chalk.cyan("http://" + defaultHost + ':' + http_port));
