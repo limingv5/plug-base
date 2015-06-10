@@ -23,6 +23,6 @@ password=123456
 /usr/bin/openssl req -new -sha256 -key $outputPath/$domain.key -out $outputPath/$domain.csr -passin pass:$password -subj "/C=$country/ST=$state/L=$locality/O=$organization/OU=$organizationalunit/CN=$commonname/emailAddress=$email"
  
 #Generating a Self-Signed Certificate
-/usr/bin/openssl x509 -req -sha256 -days 36500 -in $outputPath/$domain.csr -CA ${outputPath}/../rootCA.crt -CAkey ${outputPath}/../rootCA.key -out $outputPath/$domain.crt
+/usr/bin/openssl x509 -req -sha256 -days 36500 -in $outputPath/$domain.csr -CA ${outputPath}/../rootCA.crt -CAkey ${outputPath}/../rootCA.key -CAserial $outputPath/../.srl -out $outputPath/$domain.crt
 
 rm $outputPath/$domain.csr

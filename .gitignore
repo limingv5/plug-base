@@ -1,4 +1,3 @@
 node_modules/
-.sni/
 .idea/
-*.srl
+.sni/
