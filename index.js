@@ -235,7 +235,7 @@ PlugBase.prototype = {
               console.log("HTTPS Server running at", chalk.yellow("https://" + domain + ':' + https_port));
             }
 
-            var https = require("https")
+            var https = require("spdy")
               .createServer({
                 SNICallback: function (domain, SNICallback) {
                   var createSecureContext = require("tls").createSecureContext;
