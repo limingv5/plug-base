@@ -26,23 +26,19 @@ PlugBase.prototype = {
   dir: function (dir) {
     dir = dir || '';
     if (dir.indexOf('/') == 0 || /^\w{1}:[\\/].*$/.test(dir)) {
-      dir = path.normalize(dir);
+      return path.normalize(dir);
     }
     else {
-      dir = path.normalize(path.join(process.cwd(), dir));
-    }
-
-    if (fs.existsSync(dir)) {
-      return dir;
-    }
-    else {
-      return __dirname;
+      return path.normalize(path.join(process.cwd(), dir));
     }
   },
   config: function (confdir) {
     this.confdir = this.dir(confdir);
   },
   root: function (rootdir) {
+    if (!fs.existsSync(rootdir)) {
+      rootdir = __dirname;
+    }
     this.rootdir = this.dir(rootdir);
   },
   hosts: function (hosts) {
