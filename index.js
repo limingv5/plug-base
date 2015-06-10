@@ -18,7 +18,7 @@ function PlugBase() {
   this.serverPath = path.join(this.HTTPS_DIR, ".sni");
   this.rootCA = path.join(this.HTTPS_DIR, "rootCA.crt");
 
-  this.root(__dirname);
+  this.root("src");
   this.app.use(require("connect-timeout")("60s"));
 }
 PlugBase.prototype = {
@@ -26,10 +26,17 @@ PlugBase.prototype = {
   dir: function (dir) {
     dir = dir || '';
     if (dir.indexOf('/') == 0 || /^\w{1}:[\\/].*$/.test(dir)) {
-      return path.normalize(dir);
+      dir = path.normalize(dir);
     }
     else {
-      return path.normalize(path.join(process.cwd(), dir));
+      dir = path.normalize(path.join(process.cwd(), dir));
+    }
+
+    if (fs.existsSync(dir)) {
+      return dir;
+    }
+    else {
+      return __dirname;
     }
   },
   config: function (confdir) {
