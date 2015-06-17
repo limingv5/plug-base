@@ -4,6 +4,7 @@ var mime = require("mime");
 var net = require("net");
 var chalk = require("chalk");
 var ipLib = require("ip");
+var bodyParser = require("body-parser");
 
 function PlugBase() {
   this.app = require("connect")();
@@ -13,13 +14,14 @@ function PlugBase() {
   this.hostsFlag = true;
   this.webFlag = true;
   this.middlewares = [];
+  this.endwares = [];
 
   this.HTTPS_DIR = path.join(__dirname, "https");
   this.serverPath = path.join(this.HTTPS_DIR, ".sni");
   this.rootCA = path.join(this.HTTPS_DIR, "rootCA.crt");
 
   this.root("src");
-  this.app.use(require("connect-timeout")("60s"));
+  this.app.use(require("connect-timeout")("30s"));
 }
 PlugBase.prototype = {
   constructor: PlugBase,
@@ -84,6 +86,10 @@ PlugBase.prototype = {
 
     return this;
   },
+  end: function (middleware) {
+    this.endwares.push(middleware);
+    return this;
+  },
   listen: function (http_port, https_port, cb) {
     http_port = http_port || 80;
 
@@ -120,42 +126,43 @@ PlugBase.prototype = {
           "Content-Disposition": "attachment;filename=" + rootca
         });
         res.end(fs.readFileSync(this.rootCA, {encoding: null}));
-      }.bind(this));
+      }.bind(this))
+      .use(function (req, res, next) {
+        try {
+          req.url = decodeURI(req.url);
+        }
+        catch (e) {
+        }
 
-    if (this.webFlag) {
+        var serverIP = ipLib.address();
+        var clientIP = req.connection.remoteAddress.replace(/.+\:/, '');
+        clientIP = (net.isIP(clientIP) && clientIP != "127.0.0.1") ? clientIP : serverIP;
+        req.serverIP = serverIP;
+        req.clientIP = clientIP;
+
+        var urlLib = require("url");
+        var QUERY = require("qs");
+
+        req.query = {};
+        var _get = urlLib.parse(req.url).path.match(/([^\?])\?[^\?].*$/);
+        if (_get && _get[0]) {
+          req.query = QUERY.parse(_get[0].slice(2));
+        }
+
+        next();
+      });
+
+    if (self.webFlag) {
       var favicon = "favicon.ico";
-      this.app
+      self.app
         .use('/' + favicon, function (req, res) {
           res.writeHead(200, {
             "Content-Type": mime.lookup(favicon)
           });
           res.end(fs.readFileSync(path.join(__dirname, "assets", favicon), {encoding: null}));
         })
-        .use(function (req, res, next) {
-          try {
-            req.url = decodeURI(req.url);
-          }
-          catch (e) {
-          }
-
-          var serverIP = ipLib.address();
-          var clientIP = req.connection.remoteAddress.replace(/.+\:/, '');
-          clientIP = (net.isIP(clientIP) && clientIP != "127.0.0.1") ? clientIP : serverIP;
-          req.serverIP = serverIP;
-          req.clientIP = clientIP;
-
-          var urlLib = require("url");
-          var QUERY = require("qs");
-
-          req.query = {};
-          var _get = urlLib.parse(req.url).path.match(/([^\?])\?[^\?].*$/);
-          if (_get && _get[0]) {
-            req.query = QUERY.parse(_get[0].slice(2));
-          }
-
-          next();
-        })
-        .use(require("body-parser").urlencoded({extended: true}))
+        .use(bodyParser.raw())
+        .use(bodyParser.urlencoded({extended: true}))
         .use(require("multer")());
     }
 
@@ -186,6 +193,16 @@ PlugBase.prototype = {
             }
           }));
       }
+      else {
+        self.app
+          .use(bodyParser.raw())
+          .use(bodyParser.urlencoded({extended: true}))
+          .use(require("multer")())
+      }
+
+      self.endwares.forEach(function (middleware) {
+        self.app.use(middleware);
+      });
 
       var http = require("http").createServer(self.app).listen(http_port, function () {
         console.log("HTTP Server running at", chalk.cyan("http://" + defaultHost + ':' + http_port));
@@ -235,7 +252,7 @@ PlugBase.prototype = {
               console.log("HTTPS Server running at", chalk.yellow("https://" + domain + ':' + https_port));
             }
 
-            var https = require("spdy")
+            var https = require("https")
               .createServer({
                 SNICallback: function (domain, SNICallback) {
                   var createSecureContext = require("tls").createSecureContext;
