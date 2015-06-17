@@ -59,10 +59,6 @@ Firefox有其自身的根证书信任机制，需要另行导入根证书。
 
 HTTPs调试需要异步SNI的支持，如需开启HTTPs服务，请将Node.js升级至0.12.x及以上。
 
-## SPDY
-
-支持SPDY协议
-
 ## OS Support
 
 Mac OS X, Windows, Linux
