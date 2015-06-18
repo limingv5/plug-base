@@ -19,8 +19,9 @@ server.enableHosts({
 // 不修改hosts
 server.disableHosts();
 
-// 不作为最简服务器
-server.disableWeb();
+// 服务器模式
+// server.simpleMode();
+// server.complexMode();
 
 server
   // 普通中间件
@@ -31,6 +32,11 @@ server
   // 支持启动后传入统一配置的中间件
   .plug(require("flex-combo")[, {...}])
   .plug(require("essi")[, {...}])
+  // 收尾处理逻辑
+  .end(function (req, res, next) {
+    // res.buffer
+    // res.error
+  })
   .listen([80,] [443,] [function (port) {
     ...
   }]);

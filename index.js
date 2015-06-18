@@ -21,7 +21,6 @@ function PlugBase() {
   this.rootCA = path.join(this.HTTPS_DIR, "rootCA.crt");
 
   this.root("src");
-  this.app.use(require("connect-timeout")("30s"));
 }
 PlugBase.prototype = {
   constructor: PlugBase,
@@ -63,10 +62,11 @@ PlugBase.prototype = {
   disableHosts: function () {
     this.hostsFlag = false;
   },
-  enableWeb: function () {
+  complexMode: function () {
     this.webFlag = true;
   },
-  disableWeb: function () {
+  simpleMode: function () {
+    this.disableHosts();
     this.webFlag = false;
   },
   plug: function (module, params) {
@@ -155,6 +155,7 @@ PlugBase.prototype = {
     if (self.webFlag) {
       var favicon = "favicon.ico";
       self.app
+        .use(require("connect-timeout")("30s"))
         .use('/' + favicon, function (req, res) {
           res.writeHead(200, {
             "Content-Type": mime.lookup(favicon)
