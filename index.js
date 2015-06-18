@@ -102,6 +102,14 @@ PlugBase.prototype = {
 
     var rootca = path.basename(this.rootCA);
     this.app
+      .use(function (req, res, next) {
+        if (!res.socket || res.socket.destroyed) {
+          res.end();
+        }
+        else {
+          next();
+        }
+      })
       .use("/~https", function (req, res) {
         res.writeHead(200, {
           "Content-Type": "text/html;charset=utf-8"
@@ -128,12 +136,6 @@ PlugBase.prototype = {
         res.end(fs.readFileSync(this.rootCA, {encoding: null}));
       }.bind(this))
       .use(function (req, res, next) {
-        try {
-          req.url = decodeURI(req.url);
-        }
-        catch (e) {
-        }
-
         var serverIP = ipLib.address();
         var clientIP = req.connection.remoteAddress.replace(/.+\:/, '');
         clientIP = (net.isIP(clientIP) && clientIP != "127.0.0.1") ? clientIP : serverIP;
@@ -198,7 +200,7 @@ PlugBase.prototype = {
         self.app
           .use(bodyParser.raw())
           .use(bodyParser.urlencoded({extended: true}))
-          .use(require("multer")())
+          .use(require("multer")());
       }
 
       self.endwares.forEach(function (middleware) {
