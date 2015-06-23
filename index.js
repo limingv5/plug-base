@@ -8,11 +8,13 @@ var bodyParser = require("body-parser");
 
 function PlugBase() {
   this.app = require("connect")();
+  this.http = require("http").createServer();
+  this.port = null;
+
   this.confdir = null;
   this.rootdir = null;
   this.hostsMap = {};
   this.hostsFlag = true;
-  this.webFlag = true;
   this.middlewares = [];
   this.endwares = [];
 
@@ -22,6 +24,7 @@ function PlugBase() {
 
   this.root("src");
 }
+
 PlugBase.prototype = {
   constructor: PlugBase,
   dir: function (dir) {
@@ -36,6 +39,9 @@ PlugBase.prototype = {
   config: function (confdir) {
     this.confdir = this.dir(confdir);
   },
+  getRootCAPath: function () {
+    return this.rootCA;
+  },
   root: function (rootdir) {
     if (!fs.existsSync(rootdir)) {
       rootdir = __dirname;
@@ -47,7 +53,7 @@ PlugBase.prototype = {
   },
   clearCerts: function () {
     var self = this;
-    fs.readdir(this.serverPath, function(err, lists) {
+    fs.readdir(this.serverPath, function (err, lists) {
       lists.forEach(function (i) {
         fs.unlink(path.join(self.serverPath, i));
       });
@@ -61,13 +67,6 @@ PlugBase.prototype = {
   },
   disableHosts: function () {
     this.hostsFlag = false;
-  },
-  complexMode: function () {
-    this.webFlag = true;
-  },
-  simpleMode: function () {
-    this.disableHosts();
-    this.webFlag = false;
   },
   plug: function (module, params) {
     this.middlewares.push({
@@ -92,6 +91,7 @@ PlugBase.prototype = {
   },
   listen: function (http_port, https_port, cb) {
     http_port = http_port || 80;
+    this.port = http_port;
 
     if (typeof https_port == "function") {
       cb = https_port;
@@ -100,76 +100,33 @@ PlugBase.prototype = {
 
     var self = this;
 
-    var rootca = path.basename(this.rootCA);
     this.app
       .use(function (req, res, next) {
         if (!res.socket || res.socket.destroyed) {
           res.end();
         }
         else {
+          var serverIP = ipLib.address();
+          var clientIP = req.connection.remoteAddress.replace(/.+\:/, '');
+          clientIP = (net.isIP(clientIP) && clientIP != "127.0.0.1") ? clientIP : serverIP;
+          req.serverIP = serverIP;
+          req.clientIP = clientIP;
+
+          var urlLib = require("url");
+          var QUERY = require("qs");
+
+          req.query = {};
+          var _get = urlLib.parse(req.url).path.match(/([^\?])\?[^\?].*$/);
+          if (_get && _get[0]) {
+            req.query = QUERY.parse(_get[0].slice(2));
+          }
+
           next();
         }
-      })
-      .use("/~https", function (req, res) {
-        res.writeHead(200, {
-          "Content-Type": "text/html;charset=utf-8"
-        });
-        res.write(
-          "<meta charset='utf-8'><style>body{text-align: center}</style>" +
-          "<h1>Scan && Install the Root-CA in your devices:</h1>"
-        );
-
-        var Url = "http://" + ipLib.address() + ':' + http_port + "/~" + rootca;
-        var qr = require("qrcode-npm").qrcode(4, 'M');
-        qr.addData(Url);
-        qr.make();
-        res.write(qr.createImgTag(4));
-        res.end("<p><a href='" + Url + "'>" + Url + "</a></p>");
-      }.bind(this))
-      .use("/~" + rootca, function (req, res) {
-        console.log("Downloading " + this.rootCA);
-
-        res.writeHead(200, {
-          "Content-Type": mime.lookup(rootca),
-          "Content-Disposition": "attachment;filename=" + rootca
-        });
-        res.end(fs.readFileSync(this.rootCA, {encoding: null}));
-      }.bind(this))
-      .use(function (req, res, next) {
-        var serverIP = ipLib.address();
-        var clientIP = req.connection.remoteAddress.replace(/.+\:/, '');
-        clientIP = (net.isIP(clientIP) && clientIP != "127.0.0.1") ? clientIP : serverIP;
-        req.serverIP = serverIP;
-        req.clientIP = clientIP;
-
-        var urlLib = require("url");
-        var QUERY = require("qs");
-
-        req.query = {};
-        var _get = urlLib.parse(req.url).path.match(/([^\?])\?[^\?].*$/);
-        if (_get && _get[0]) {
-          req.query = QUERY.parse(_get[0].slice(2));
-        }
-
-        next();
       });
 
-    if (self.webFlag) {
-      var favicon = "favicon.ico";
-      self.app
-        .use(require("connect-timeout")("30s"))
-        .use('/' + favicon, function (req, res) {
-          res.writeHead(200, {
-            "Content-Type": mime.lookup(favicon)
-          });
-          res.end(fs.readFileSync(path.join(__dirname, "assets", favicon), {encoding: null}));
-        })
-        .use(bodyParser.raw())
-        .use(bodyParser.urlencoded({extended: true}))
-        .use(require("multer")());
-    }
-
     function startServer(hosts) {
+      hosts = hosts || {};
       var util = require("util");
       var defaultHost = ipLib.address();
 
@@ -186,32 +143,16 @@ PlugBase.prototype = {
         }
       });
 
-      if (self.webFlag) {
-        self.app
-          .use(require("serve-index")(self.rootdir, {icons: true}))
-          .use(require("serve-static")(self.rootdir, {
-            index: false,
-            setHeaders: function (res, path) {
-              res.setHeader("Content-Type", mime.lookup(path));
-            }
-          }));
-      }
-      else {
-        self.app
-          .use(bodyParser.raw())
-          .use(bodyParser.urlencoded({extended: true}))
-          .use(require("multer")());
-      }
-
       self.endwares.forEach(function (middleware) {
         self.app.use(middleware);
       });
 
-      var http = require("http").createServer(self.app).listen(http_port, function () {
-        console.log("HTTP Server running at", chalk.cyan("http://" + defaultHost + ':' + http_port));
-        typeof cb == "function" && cb(http_port);
-      });
-      self.app.emit("http", http);
+      self.http
+        .on("request", self.app)
+        .listen(http_port, function () {
+          console.log("HTTP Server running at", chalk.cyan("http://" + defaultHost + ':' + http_port));
+          typeof cb == "function" && cb(http_port);
+        });
 
       if (https_port) {
         var exec = require("child_process").exec;
@@ -255,7 +196,7 @@ PlugBase.prototype = {
               console.log("HTTPS Server running at", chalk.yellow("https://" + domain + ':' + https_port));
             }
 
-            var https = require("https")
+            require("https")
               .createServer({
                 SNICallback: function (domain, SNICallback) {
                   var createSecureContext = require("tls").createSecureContext;
@@ -305,7 +246,6 @@ PlugBase.prototype = {
                 typeof cb == "function" && cb(https_port);
                 log(defaultHost);
               });
-            self.app.emit("https", https);
 
             var domains = Object.keys(hosts);
             domains.push("localhost", "127.0.0.1");
@@ -335,9 +275,85 @@ PlugBase.prototype = {
       });
     }
     else {
-      startServer({});
+      startServer();
     }
   }
 };
 
-module.exports = new PlugBase();
+var quickStart = function () {
+  var server = new PlugBase();
+
+  var rootCAPath = server.getRootCAPath();
+  var rootca = path.basename(rootCAPath);
+  var favicon = "favicon.ico";
+
+  server
+    .use(require("connect-timeout")("30s"))
+    .use('/' + favicon, function (req, res) {
+      res.writeHead(200, {
+        "Content-Type": mime.lookup(favicon)
+      });
+      res.end(fs.readFileSync(path.join(__dirname, "assets", favicon), {encoding: null}));
+    })
+    .use("/~https", function (req, res) {
+      res.writeHead(200, {
+        "Content-Type": "text/html;charset=utf-8"
+      });
+      res.write(
+        "<meta charset='utf-8'><style>body{text-align: center}</style>" +
+        "<h1>Scan && Install the Root-CA in your devices:</h1>"
+      );
+
+      var Url = "http://" + ipLib.address() + ':' + server.port + "/~" + rootca;
+      var qr = require("qrcode-npm").qrcode(4, 'M');
+      qr.addData(Url);
+      qr.make();
+      res.write(qr.createImgTag(4));
+      res.end("<p><a href='" + Url + "'>" + Url + "</a></p>");
+    }.bind(this))
+    .use("/~" + rootca, function (req, res) {
+      console.log("Downloading " + rootCAPath);
+
+      res.writeHead(200, {
+        "Content-Type": mime.lookup(rootca),
+        "Content-Disposition": "attachment;filename=" + rootca
+      });
+      res.end(fs.readFileSync(rootCAPath, {encoding: null}));
+    }.bind(this))
+    .use(bodyParser.raw())
+    .use(bodyParser.urlencoded({extended: true}))
+    .use(require("multer")())
+    .end(require("serve-index")(server.rootdir, {icons: true}))
+    .end(require("serve-static")(server.rootdir, {
+      index: false,
+      setHeaders: function (res, path) {
+        res.setHeader("Content-Type", mime.lookup(path));
+      }
+    }));
+  return server;
+};
+
+var parser = function () {
+  var server = new PlugBase();
+  server.disableHosts();
+  server
+    .end(function (req, res, next) {
+      var contentType = req.headers['content-type'];
+      if (contentType) {
+        req.headers['content-type'] = contentType.replace(/\s{0,}charset=.+/, '');
+      }
+      next();
+    })
+    .end(bodyParser.raw())
+    .end(bodyParser.urlencoded({extended: true}))
+    .end(require("multer")());
+  return server;
+};
+
+exports = module.exports = quickStart();
+exports.parser = parser;
+exports.PlugBase = PlugBase;
+
+process.on("uncaughtException", function (err) {
+  console.log("Caught Exception: " + err);
+});

@@ -1,5 +1,7 @@
 # Plug Base
 
+## QuickStart
+
 ```
 var server = require("plug-base");
 // 设置根目录
@@ -18,10 +20,6 @@ server.enableHosts({
 
 // 不修改hosts
 server.disableHosts();
-
-// 服务器模式
-// server.simpleMode();
-// server.complexMode();
 
 server
   // 普通中间件
@@ -42,15 +40,18 @@ server
   }]);
 ```
 
-## Request
+## new Instance
 
-`req.query` -- GET Request Fields
+var PlugBase = require("plug-base").PlugBase;
 
-`req.body` -- POST Request Fields
+var server = new PlugBase();
+
+// 获取rootCA文件地址
+server.getRootCAPath();
 
 ## 根证书生效
 
-> 访问`http://127.0.0.1/~`，该页面中显示了一个根证书二维码以及根证书下载地址。
+> 访问`http://127.0.0.1/~https`，该页面中显示了一个根证书二维码以及根证书下载地址。
 
 ### Mobile Support
 
@@ -61,9 +62,11 @@ server
 Firefox有其自身的根证书信任机制，需要另行导入根证书。
 通过点击下载地址或直接访问`http://127.0.0.1/~rootCA.crt`进行下载并导入Firefox。
 
+
 ## HTTPs
 
 HTTPs调试需要异步SNI的支持，如需开启HTTPs服务，请将Node.js升级至0.12.x及以上。
+
 
 ## OS Support
 
