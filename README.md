@@ -42,12 +42,14 @@ server
 
 ## new Instance
 
+```
 var PlugBase = require("plug-base").PlugBase;
 
 var server = new PlugBase();
 
 // 获取rootCA文件地址
 server.getRootCAPath();
+```
 
 ## 根证书生效
 
