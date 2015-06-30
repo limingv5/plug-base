@@ -48,6 +48,9 @@ PlugBase.prototype = {
     }
     this.rootdir = this.dir(rootdir);
   },
+  getRootPath: function () {
+    return this.rootdir;
+  },
   hosts: function (hosts) {
     this.hostsMap = hosts || {};
   },
@@ -111,6 +114,7 @@ PlugBase.prototype = {
           clientIP = (net.isIP(clientIP) && clientIP != "127.0.0.1") ? clientIP : serverIP;
           req.serverIP = serverIP;
           req.clientIP = clientIP;
+
 
           var urlLib = require("url");
           var QUERY = require("qs");
@@ -280,8 +284,11 @@ PlugBase.prototype = {
   }
 };
 
-var quickStart = function () {
+var quickStart = function (root) {
   var server = new PlugBase();
+  if (typeof root != "undefined") {
+    server.root(root);
+  }
 
   var rootCAPath = server.getRootCAPath();
   var rootca = path.basename(rootCAPath);
@@ -323,8 +330,8 @@ var quickStart = function () {
     .use(bodyParser.raw())
     .use(bodyParser.urlencoded({extended: true}))
     .use(require("multer")())
-    .end(require("serve-index")(server.rootdir, {icons: true}))
-    .end(require("serve-static")(server.rootdir, {
+    .end(require("serve-index")(server.getRootPath(), {icons: true}))
+    .end(require("serve-static")(server.getRootPath(), {
       index: false,
       setHeaders: function (res, path) {
         res.setHeader("Content-Type", mime.lookup(path));
@@ -351,6 +358,7 @@ var parser = function () {
 };
 
 exports = module.exports = quickStart();
+exports.quickStart = quickStart;
 exports.parser = parser;
 exports.PlugBase = PlugBase;
 
