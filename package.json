@@ -1,6 +1,6 @@
 {
   "name": "plug-base",
-  "version": "0.8.0",
+  "version": "0.8.1",
   "description": "Plug Base for FE-Dev",
   "main": "index.js",
   "repository": "https://github.com/limingv5/plug-base.git",
