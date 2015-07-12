@@ -340,9 +340,14 @@ var quickStart = function (root) {
   return server;
 };
 
-var parser = function () {
+var pure = function () {
   var server = new PlugBase();
   server.disableHosts();
+  return server;
+};
+
+var parser = function () {
+  var server = pure();
   server
     .end(function (req, res, next) {
       var contentType = req.headers['content-type'];
@@ -359,6 +364,7 @@ var parser = function () {
 
 exports = module.exports = quickStart();
 exports.quickStart = quickStart;
+exports.pure = pure;
 exports.parser = parser;
 exports.PlugBase = PlugBase;
 
