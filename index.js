@@ -1,7 +1,7 @@
 var fs = require("fs");
 var path = require("path");
-var mime = require("mime");
 var net = require("net");
+var mime = require("mime");
 var chalk = require("chalk");
 var ipLib = require("ip");
 var bodyParser = require("body-parser");
@@ -154,7 +154,7 @@ PlugBase.prototype = {
       self.http
         .on("request", self.app)
         .listen(http_port, function () {
-          console.log("HTTP Server running at", chalk.cyan("http://" + defaultHost + ':' + http_port));
+          console.log("HTTP Server is running at", chalk.cyan("http://" + defaultHost + ':' + http_port));
           typeof cb == "function" && cb(http_port);
         });
 
@@ -197,7 +197,7 @@ PlugBase.prototype = {
             fs.chmod(default_crt, 0777);
 
             function log(domain) {
-              console.log("HTTPS Server running at", chalk.yellow("https://" + domain + ':' + https_port));
+              console.log("HTTPS Server is running at", chalk.yellow("https://" + domain + ':' + https_port));
             }
 
             require("https")
