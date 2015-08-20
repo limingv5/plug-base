@@ -330,6 +330,14 @@ var quickStart = function (root) {
     .use(bodyParser.raw())
     .use(bodyParser.urlencoded({extended: true}))
     .use(require("multer")())
+    .end(function (req, res, next) {
+      if (res._header) {
+        return;
+      }
+      else {
+        next();
+      }
+    })
     .end(require("serve-index")(server.getRootPath(), {icons: true}))
     .end(require("serve-static")(server.getRootPath(), {
       index: false,
