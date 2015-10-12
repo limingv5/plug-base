@@ -1,26 +1,26 @@
-var fs = require("fs");
-var path = require("path");
-var net = require("net");
-var mime = require("mime");
-var chalk = require("chalk");
-var ipLib = require("ip");
+var fs         = require("fs");
+var path       = require("path");
+var net        = require("net");
+var mime       = require("mime");
+var chalk      = require("chalk");
+var ipLib      = require("ip");
 var bodyParser = require("body-parser");
 
 function PlugBase() {
-  this.app = require("connect")();
-  this.http = require("http").createServer();
-  this.port = null;
+  this.app   = require("connect")();
+  this.http  = null;
+  this.https = null;
 
-  this.confdir = null;
-  this.rootdir = null;
-  this.hostsMap = {};
-  this.hostsFlag = true;
+  this.confdir     = null;
+  this.rootdir     = null;
+  this.hostsMap    = {};
+  this.hostsFlag   = true;
   this.middlewares = [];
-  this.endwares = [];
+  this.endwares    = [];
 
-  this.HTTPS_DIR = path.join(__dirname, "https");
+  this.HTTPS_DIR  = path.join(__dirname, "https");
   this.serverPath = path.join(this.HTTPS_DIR, ".sni");
-  this.rootCA = path.join(this.HTTPS_DIR, "rootCA.crt");
+  this.rootCA     = path.join(this.HTTPS_DIR, "rootCA.crt");
 
   this.root("src");
 }
@@ -92,12 +92,22 @@ PlugBase.prototype = {
     this.endwares.push(middleware);
     return this;
   },
+  close: function (cb) {
+    if (this.http) {
+      this.http.close(cb);
+      this.http = null;
+    }
+
+    if (this.https) {
+      this.https.close(cb);
+      this.https = null;
+    }
+  },
   listen: function (http_port, https_port, cb) {
     http_port = http_port || 80;
-    this.port = http_port;
 
     if (typeof https_port == "function") {
-      cb = https_port;
+      cb         = https_port;
       https_port = null;
     }
 
@@ -111,16 +121,15 @@ PlugBase.prototype = {
         else {
           var serverIP = ipLib.address();
           var clientIP = req.connection.remoteAddress.replace(/.+\:/, '');
-          clientIP = (net.isIP(clientIP) && clientIP != "127.0.0.1") ? clientIP : serverIP;
+          clientIP     = (net.isIP(clientIP) && clientIP != "127.0.0.1") ? clientIP : serverIP;
           req.serverIP = serverIP;
           req.clientIP = clientIP;
 
-
           var urlLib = require("url");
-          var QUERY = require("qs");
+          var QUERY  = require("qs");
 
           req.query = {};
-          var _get = urlLib.parse(req.url).path.match(/([^\?])\?[^\?].*$/);
+          var _get  = urlLib.parse(req.url).path.match(/([^\?])\?[^\?].*$/);
           if (_get && _get[0]) {
             req.query = QUERY.parse(_get[0].slice(2));
           }
@@ -130,14 +139,14 @@ PlugBase.prototype = {
       });
 
     function startServer(hosts) {
-      hosts = hosts || {};
-      var util = require("util");
+      hosts           = hosts || {};
+      var util        = require("util");
       var defaultHost = ipLib.address();
 
       self.middlewares.forEach(function (middleware) {
         var module = middleware.module;
         if (module && typeof module == "function") {
-          middleware.params.hosts = hosts;
+          middleware.params.hosts   = hosts;
           middleware.params.rootdir = middleware.params.rootdir || self.rootdir;
 
           self.app.use(module(middleware.params, self.confdir));
@@ -151,21 +160,21 @@ PlugBase.prototype = {
         self.app.use(middleware);
       });
 
-      self.http
-        .on("request", self.app)
+      self.http = require("http")
+        .createServer(self.app)
         .listen(http_port, function () {
           console.log("HTTP Server is running at", chalk.cyan("http://" + defaultHost + ':' + http_port));
           typeof cb == "function" && cb(http_port);
         });
 
       if (https_port) {
-        var exec = require("child_process").exec;
+        var exec     = require("child_process").exec;
         var platform = require("os").platform();
 
-        var rootCA = self.rootCA;
+        var rootCA     = self.rootCA;
         var serverPath = self.serverPath;
-        var HTTPS_DIR = self.HTTPS_DIR;
-        var genCert = HTTPS_DIR + "/gen-cer.sh";
+        var HTTPS_DIR  = self.HTTPS_DIR;
+        var genCert    = HTTPS_DIR + "/gen-cer.sh";
 
         if (!fs.existsSync(serverPath)) {
           fs.mkdirSync(serverPath);
@@ -176,7 +185,7 @@ PlugBase.prototype = {
         var InstallRootCA;
         if (platform.match(/^win/i)) {
           InstallRootCA = "certutil -addstore -f \"ROOT\" new-root-certificate.crt";
-          genCert = HTTPS_DIR + "/gen-cer.bat";
+          genCert       = HTTPS_DIR + "/gen-cer.bat";
         }
         else if (platform.match(/darwin/i)) {
           InstallRootCA = "sudo security add-trusted-cert -d -r trustRoot -k /Library/Keychains/System.keychain " + rootCA;
@@ -200,7 +209,7 @@ PlugBase.prototype = {
               console.log("HTTPS Server is running at", chalk.yellow("https://" + domain + ':' + https_port));
             }
 
-            require("spdy")
+            self.https = require("spdy")
               .createServer({
                 SNICallback: function (domain, SNICallback) {
                   var createSecureContext = require("tls").createSecureContext;
@@ -216,8 +225,8 @@ PlugBase.prototype = {
                   }
 
                   var certPath = path.join(serverPath, domain);
-                  var key = certPath + ".key";
-                  var crt = certPath + ".crt";
+                  var key      = certPath + ".key";
+                  var crt      = certPath + ".crt";
 
                   if (fs.existsSync(key) && fs.existsSync(crt)) {
                     SNICallback(null, createSecureContext({
@@ -291,8 +300,8 @@ var quickStart = function (root) {
   }
 
   var rootCAPath = server.getRootCAPath();
-  var rootca = path.basename(rootCAPath);
-  var favicon = "favicon.ico";
+  var rootca     = path.basename(rootCAPath);
+  var favicon    = "favicon.ico";
 
   server
     .use(require("connect-timeout")("30s"))
@@ -311,8 +320,9 @@ var quickStart = function (root) {
         "<h1>Scan && Install the Root-CA in your devices:</h1>"
       );
 
-      var Url = "http://" + ipLib.address() + ':' + server.port + "/~" + rootca;
-      var qr = require("qrcode-npm").qrcode(4, 'M');
+      var port = parseInt(server.http._connectionKey.replace(/.+\:/, ''));
+      var Url  = "http://" + req.serverIP + ((port && port != 80) ? (':' + port) : '') + "/~" + rootca;
+      var qr   = require("qrcode-npm").qrcode(4, 'M');
       qr.addData(Url);
       qr.make();
       res.write(qr.createImgTag(4));
@@ -370,11 +380,11 @@ var parser = function () {
   return server;
 };
 
-exports = module.exports = quickStart();
+var exports = module.exports = quickStart();
 exports.quickStart = quickStart;
-exports.pure = pure;
-exports.parser = parser;
-exports.PlugBase = PlugBase;
+exports.pure       = pure;
+exports.parser     = parser;
+exports.PlugBase   = PlugBase;
 
 process.on("uncaughtException", function (err) {
   console.log("Caught Exception: " + err);
