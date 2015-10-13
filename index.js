@@ -1,9 +1,11 @@
 var fs         = require("fs");
 var path       = require("path");
+var urlLib     = require("url");
 var net        = require("net");
 var mime       = require("mime");
 var chalk      = require("chalk");
 var ipLib      = require("ip");
+var QUERY      = require("qs");
 var bodyParser = require("body-parser");
 
 function PlugBase() {
@@ -15,6 +17,7 @@ function PlugBase() {
   this.rootdir     = null;
   this.hostsMap    = {};
   this.hostsFlag   = true;
+  this.caFlag      = true;
   this.middlewares = [];
   this.endwares    = [];
 
@@ -68,8 +71,14 @@ PlugBase.prototype = {
       this.hosts(hosts);
     }
   },
+  enableCA: function () {
+    this.caFlag = true;
+  },
   disableHosts: function () {
     this.hostsFlag = false;
+  },
+  disableCA: function () {
+    this.caFlag = false;
   },
   plug: function (module, params) {
     this.middlewares.push({
@@ -93,14 +102,19 @@ PlugBase.prototype = {
     return this;
   },
   close: function (cb) {
+    var self = this;
     if (this.http) {
-      this.http.close(cb);
-      this.http = null;
-    }
+      this.http.close(function () {
+        self.http = null;
 
-    if (this.https) {
-      this.https.close(cb);
-      this.https = null;
+        if (self.https) {
+          self.https.close(cb);
+          self.https = null;
+        }
+        else {
+          cb(arguments);
+        }
+      });
     }
   },
   listen: function (http_port, https_port, cb) {
@@ -122,14 +136,12 @@ PlugBase.prototype = {
           var serverIP = ipLib.address();
           var clientIP = req.connection.remoteAddress.replace(/.+\:/, '');
           clientIP     = (net.isIP(clientIP) && clientIP != "127.0.0.1") ? clientIP : serverIP;
+
           req.serverIP = serverIP;
           req.clientIP = clientIP;
+          req.query    = {};
 
-          var urlLib = require("url");
-          var QUERY  = require("qs");
-
-          req.query = {};
-          var _get  = urlLib.parse(req.url).path.match(/([^\?])\?[^\?].*$/);
+          var _get = urlLib.parse(req.url).path.match(/([^\?])\?[^\?].*$/);
           if (_get && _get[0]) {
             req.query = QUERY.parse(_get[0].slice(2));
           }
@@ -178,13 +190,13 @@ PlugBase.prototype = {
 
         if (!fs.existsSync(serverPath)) {
           fs.mkdirSync(serverPath);
-          fs.chmod(serverPath, 0777);
+          fs.chmod(serverPath, 0o777);
         }
 
         // init CMD
         var InstallRootCA;
         if (platform.match(/^win/i)) {
-          InstallRootCA = "certutil -addstore -f \"ROOT\" new-root-certificate.crt";
+          InstallRootCA = "certutil -addstore -f \"ROOT\" " + rootCA;
           genCert       = HTTPS_DIR + "/gen-cer.bat";
         }
         else if (platform.match(/darwin/i)) {
@@ -193,17 +205,20 @@ PlugBase.prototype = {
         else {
           // TODO: Linux
         }
-        InstallRootCA && exec(InstallRootCA, function () {
-          console.log(chalk.green("The rootCA is installed!"));
-        });
+
+        if (self.caFlag && InstallRootCA) {
+          exec(InstallRootCA, function () {
+            console.log(chalk.green("The rootCA is installed!"));
+          });
+        }
 
         exec([genCert, defaultHost, serverPath].join(' '), function (err) {
           if (!err) {
             var default_key = path.join(serverPath, defaultHost + ".key");
             var default_crt = path.join(serverPath, defaultHost + ".crt");
 
-            fs.chmod(default_key, 0777);
-            fs.chmod(default_crt, 0777);
+            fs.chmod(default_key, 0o777);
+            fs.chmod(default_crt, 0o777);
 
             function log(domain) {
               console.log("HTTPS Server is running at", chalk.yellow("https://" + domain + ':' + https_port));
@@ -241,8 +256,8 @@ PlugBase.prototype = {
                           key: fs.readFileSync(key, "utf-8"),
                           cert: fs.readFileSync(crt, "utf-8")
                         }));
-                        fs.chmod(key, 0777);
-                        fs.chmod(crt, 0777);
+                        fs.chmod(key, 0o777);
+                        fs.chmod(crt, 0o777);
                         log(domain);
                       }
                       else {
@@ -264,8 +279,8 @@ PlugBase.prototype = {
             domains.push("localhost", "127.0.0.1");
             domains.forEach(function (domain) {
               exec([genCert, domain, serverPath].join(' '), function () {
-                fs.chmod(path.join(serverPath, domain + ".key"), 0777);
-                fs.chmod(path.join(serverPath, domain + ".crt"), 0777);
+                fs.chmod(path.join(serverPath, domain + ".key"), 0o777);
+                fs.chmod(path.join(serverPath, domain + ".crt"), 0o777);
               });
             });
           }
@@ -361,6 +376,7 @@ var quickStart = function (root) {
 var pure = function () {
   var server = new PlugBase();
   server.disableHosts();
+  server.disableCA();
   return server;
 };
 
