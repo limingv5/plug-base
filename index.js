@@ -46,10 +46,11 @@ PlugBase.prototype = {
     return this.rootCA;
   },
   root: function (rootdir) {
+    rootdir = this.dir(rootdir);
     if (!fs.existsSync(rootdir)) {
       rootdir = __dirname;
     }
-    this.rootdir = this.dir(rootdir);
+    this.rootdir = rootdir;
   },
   getRootPath: function () {
     return this.rootdir;
@@ -190,7 +191,7 @@ PlugBase.prototype = {
 
         if (!fs.existsSync(serverPath)) {
           fs.mkdirSync(serverPath);
-          fs.chmod(serverPath, 0o777);
+          fs.chmod(serverPath, 0777);
         }
 
         // init CMD
@@ -217,8 +218,8 @@ PlugBase.prototype = {
             var default_key = path.join(serverPath, defaultHost + ".key");
             var default_crt = path.join(serverPath, defaultHost + ".crt");
 
-            fs.chmod(default_key, 0o777);
-            fs.chmod(default_crt, 0o777);
+            fs.chmod(default_key, 0777);
+            fs.chmod(default_crt, 0777);
 
             function log(domain) {
               console.log("HTTPS Server is running at", chalk.yellow("https://" + domain + ':' + https_port));
@@ -256,8 +257,8 @@ PlugBase.prototype = {
                           key: fs.readFileSync(key, "utf-8"),
                           cert: fs.readFileSync(crt, "utf-8")
                         }));
-                        fs.chmod(key, 0o777);
-                        fs.chmod(crt, 0o777);
+                        fs.chmod(key, 0777);
+                        fs.chmod(crt, 0777);
                         log(domain);
                       }
                       else {
@@ -279,8 +280,8 @@ PlugBase.prototype = {
             domains.push("localhost", "127.0.0.1");
             domains.forEach(function (domain) {
               exec([genCert, domain, serverPath].join(' '), function () {
-                fs.chmod(path.join(serverPath, domain + ".key"), 0o777);
-                fs.chmod(path.join(serverPath, domain + ".crt"), 0o777);
+                fs.chmod(path.join(serverPath, domain + ".key"), 0777);
+                fs.chmod(path.join(serverPath, domain + ".crt"), 0777);
               });
             });
           }
