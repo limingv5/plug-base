@@ -1,12 +1,13 @@
-var fs         = require("fs");
-var path       = require("path");
-var urlLib     = require("url");
-var net        = require("net");
-var mime       = require("mime");
-var chalk      = require("chalk");
-var ipLib      = require("ip");
-var QUERY      = require("qs");
-var bodyParser = require("body-parser");
+var fs            = require("fs");
+var path          = require("path");
+var urlLib        = require("url");
+var net           = require("net");
+var mime          = require("mime");
+var chalk         = require("chalk");
+var ipLib         = require("ip");
+var QUERY         = require("qs");
+var bodyParser    = require("body-parser");
+var enableDestroy = require("server-destroy");
 
 function PlugBase() {
   this.app   = require("connect")();
@@ -105,11 +106,11 @@ PlugBase.prototype = {
   close: function (cb) {
     var self = this;
     if (this.http) {
-      this.http.close(function () {
+      this.http.destroy(function () {
         self.http = null;
 
         if (self.https) {
-          self.https.close(cb);
+          self.https.destroy(cb);
           self.https = null;
         }
         else {
@@ -179,6 +180,7 @@ PlugBase.prototype = {
           console.log("HTTP Server is running at", chalk.cyan("http://" + defaultHost + ':' + http_port));
           typeof cb == "function" && cb(http_port);
         });
+      enableDestroy(self.http)
 
       if (https_port) {
         var exec     = require("child_process").exec;
@@ -275,6 +277,7 @@ PlugBase.prototype = {
                 typeof cb == "function" && cb(https_port);
                 log(defaultHost);
               });
+            enableDestroy(self.https)
 
             var domains = Object.keys(hosts);
             domains.push("localhost", "127.0.0.1");
