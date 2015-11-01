@@ -8,6 +8,7 @@ var ipLib         = require("ip");
 var QUERY         = require("qs");
 var bodyParser    = require("body-parser");
 var enableDestroy = require("server-destroy");
+var genCer        = require(path.join(__dirname, "/https/gen-cer.js"));
 
 function PlugBase() {
   this.app   = require("connect")();
@@ -21,10 +22,7 @@ function PlugBase() {
   this.caFlag      = true;
   this.middlewares = [];
   this.endwares    = [];
-
-  this.HTTPS_DIR  = path.join(__dirname, "https");
-  this.serverPath = path.join(this.HTTPS_DIR, ".sni");
-  this.rootCA     = path.join(this.HTTPS_DIR, "rootCA.crt");
+  this.rootCA      = path.join(__dirname, "https/rootCA.crt");
 
   this.root("src");
 }
@@ -58,14 +56,6 @@ PlugBase.prototype = {
   },
   hosts: function (hosts) {
     this.hostsMap = hosts || {};
-  },
-  clearCerts: function () {
-    var self = this;
-    fs.readdir(this.serverPath, function (err, lists) {
-      lists.forEach(function (i) {
-        fs.unlink(path.join(self.serverPath, i));
-      });
-    });
   },
   enableHosts: function (hosts) {
     this.hostsFlag = true;
@@ -185,22 +175,12 @@ PlugBase.prototype = {
       if (https_port) {
         var exec     = require("child_process").exec;
         var platform = require("os").platform();
-
-        var rootCA     = self.rootCA;
-        var serverPath = self.serverPath;
-        var HTTPS_DIR  = self.HTTPS_DIR;
-        var genCert    = HTTPS_DIR + "/gen-cer.sh";
-
-        if (!fs.existsSync(serverPath)) {
-          fs.mkdirSync(serverPath);
-          fs.chmod(serverPath, 0777);
-        }
+        var rootCA   = self.rootCA;
 
         // init CMD
         var InstallRootCA;
         if (platform.match(/^win/i)) {
           InstallRootCA = "certutil -addstore -f \"ROOT\" " + rootCA;
-          genCert       = HTTPS_DIR + "/gen-cer.bat";
         }
         else if (platform.match(/darwin/i)) {
           InstallRootCA = "sudo security add-trusted-cert -d -r trustRoot -k /Library/Keychains/System.keychain " + rootCA;
@@ -215,14 +195,8 @@ PlugBase.prototype = {
           });
         }
 
-        exec([genCert, defaultHost, serverPath].join(' '), function (err) {
+        genCer(defaultHost, function (err, default_key, default_cert) {
           if (!err) {
-            var default_key = path.join(serverPath, defaultHost + ".key");
-            var default_crt = path.join(serverPath, defaultHost + ".crt");
-
-            fs.chmod(default_key, 0777);
-            fs.chmod(default_crt, 0777);
-
             function log(domain) {
               console.log("HTTPS Server is running at", chalk.yellow("https://" + domain + ':' + https_port));
             }
@@ -242,51 +216,29 @@ PlugBase.prototype = {
                     return;
                   }
 
-                  var certPath = path.join(serverPath, domain);
-                  var key      = certPath + ".key";
-                  var crt      = certPath + ".crt";
-
-                  if (fs.existsSync(key) && fs.existsSync(crt)) {
-                    SNICallback(null, createSecureContext({
-                      key: fs.readFileSync(key, "utf-8"),
-                      cert: fs.readFileSync(crt, "utf-8")
-                    }));
-                  }
-                  else {
-                    exec([genCert, domain, serverPath].join(' '), function (err) {
-                      if (!err) {
-                        SNICallback(null, createSecureContext({
-                          key: fs.readFileSync(key, "utf-8"),
-                          cert: fs.readFileSync(crt, "utf-8")
-                        }));
-                        fs.chmod(key, 0777);
-                        fs.chmod(crt, 0777);
-                        log(domain);
-                      }
-                      else {
-                        SNICallback(err);
-                      }
-                    });
-                  }
+                  genCer(domain, function (err, key, cert) {
+                    if (!err) {
+                      SNICallback(null, createSecureContext({
+                        key: key,
+                        cert: cert
+                      }));
+                      log(domain);
+                    }
+                    else {
+                      SNICallback(err);
+                    }
+                  });
                 },
-                key: fs.readFileSync(default_key, "utf-8"),
-                cert: fs.readFileSync(default_crt, "utf-8"),
+                key: default_key,
+                cert: default_cert,
                 ca: fs.readFileSync(rootCA, "utf-8")
               }, self.app)
               .listen(https_port, function () {
                 typeof cb == "function" && cb(https_port);
                 log(defaultHost);
               });
-            enableDestroy(self.https)
 
-            var domains = Object.keys(hosts);
-            domains.push("localhost", "127.0.0.1");
-            domains.forEach(function (domain) {
-              exec([genCert, domain, serverPath].join(' '), function () {
-                fs.chmod(path.join(serverPath, domain + ".key"), 0777);
-                fs.chmod(path.join(serverPath, domain + ".crt"), 0777);
-              });
-            });
+            enableDestroy(self.https);
           }
           else {
             console.log(err);
