@@ -1,6 +1,6 @@
 {
   "name": "plug-base",
-  "version": "0.9.1",
+  "version": "0.9.2",
   "description": "Plug Base for FE-Dev",
   "main": "index.js",
   "repository": "https://github.com/limingv5/plug-base.git",
@@ -13,6 +13,9 @@
   "keywords": [
     "fe",
     "server",
+    "https",
+    "spdy",
+    "cert",
     "middleware",
     "development"
   ],
@@ -34,6 +37,6 @@
     "serve-static": "~1.10.0",
     "server-destroy": "~1.0.1",
     "spdy": "~2.0.5",
-    "yargs": "~3.27.0"
+    "yargs": "~3.29.0"
   }
 }
