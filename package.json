@@ -7,9 +7,6 @@
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
   },
-  "bin": {
-    "plug-base": "./bin/plug-base"
-  },
   "keywords": [
     "fe",
     "server",
@@ -36,7 +33,6 @@
     "serve-index": "~1.7.2",
     "serve-static": "~1.10.0",
     "server-destroy": "~1.0.1",
-    "spdy": "~2.0.5",
-    "yargs": "~3.29.0"
+    "spdy": "~2.0.5"
   }
 }
