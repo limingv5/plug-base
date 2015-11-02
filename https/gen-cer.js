@@ -40,7 +40,7 @@ module.exports = function (domain, cb) {
   var cert      = forge.pki.createCertificate()
 
   cert.serialNumber       = 'C41C8AA3025C0808'
-  cert.validity.notBefore = new Date()
+  cert.validity.notBefore = new Date('2015-10-10')
   cert.validity.notAfter  = new Date()
   cert.validity.notAfter.setFullYear(cert.validity.notBefore.getFullYear() + 1)
 
