@@ -125,13 +125,16 @@ PlugBase.prototype = {
           res.end();
         }
         else {
-          var serverIP = ipLib.address();
-          var clientIP = req.connection.remoteAddress.replace(/.+\:/, '');
-          clientIP     = (net.isIP(clientIP) && clientIP != "127.0.0.1") ? clientIP : serverIP;
+          var serverIP   = ipLib.address();
+          var serverPort = req.headers.host.split(':')[1];
+          serverPort     = serverPort ? parseInt(serverPort) : 0;
+          var clientIP   = req.connection.remoteAddress.replace(/.+\:/, '');
+          clientIP       = (net.isIP(clientIP) && clientIP != "127.0.0.1") ? clientIP : serverIP;
 
-          req.serverIP = serverIP;
-          req.clientIP = clientIP;
-          req.query    = {};
+          req.serverIP   = serverIP;
+          req.serverPort = serverPort;
+          req.clientIP   = clientIP;
+          req.query      = {};
 
           var _get = urlLib.parse(req.url).path.match(/([^\?])\?[^\?].*$/);
           if (_get && _get[0]) {
