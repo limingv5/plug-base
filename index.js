@@ -328,16 +328,19 @@ var quickStart = function (root) {
       }
     }))
     .use(function (req, res, next) {
-      if(req.rawBody) { next(); } 
-      
-      var arr = [];
-      req.on("data", function(chunk) {
-        arr.push(chunk);
-      });
-      req.on("end", function() {
-        req.rawBody = Buffer.concat(arr);
+      if(req.rawBody) {
         next();
-      });
+      }
+      else {
+        var arr = [];
+        req.on("data", function(chunk) {
+          arr.push(chunk);
+        });
+        req.on("end", function() {
+          req.rawBody = Buffer.concat(arr);
+          next();
+        });
+      }
     })
     .use(require("multer")())
     .end(function (req, res, next) {
