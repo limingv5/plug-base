@@ -313,27 +313,27 @@ var quickStart = function (root) {
     }.bind(this))
     .use(bodyParser.raw({
        verify: function (req, res, buf, encoding) {
-        req.rawBody = buf.toString();
+        req.rawBody = buf;
       }
     }))
     .use(bodyParser.urlencoded({
       extended: true,
       verify: function (req, res, buf, encoding) {
-        req.rawBody = buf.toString();
+        req.rawBody = buf;
       }
     }))
     .use(bodyParser.json({
       verify: function (req, res, buf, encoding) {
-        req.rawBody = buf.toString();
+        req.rawBody = buf;
       }
     }))
     .use(function (req, res, next) {
-      var data = new Buffer('');
-      req.on('data', function(chunk) {
-          data = Buffer.concat([data, chunk]);
+      var arr = [];
+      req.on("data", function(chunk) {
+        arr.push(chunk);
       });
-      req.on('end', function() {
-        req.rawBody = data;
+      req.on("end", function() {
+        req.rawBody = Buffer.concat(arr);
         next();
       });
     })
