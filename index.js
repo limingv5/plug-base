@@ -313,21 +313,22 @@ var quickStart = function (root) {
     }.bind(this))
     .use(bodyParser.raw({
        verify: function (req, res, buf, encoding) {
-        req.rawBody = buf.toString();
+        req.rawBody = buf;
       }
     }))
     .use(bodyParser.urlencoded({
       extended: true,
       verify: function (req, res, buf, encoding) {
-        req.rawBody = buf.toString();
+        req.rawBody = buf;
       }
     }))
     .use(bodyParser.json({
       verify: function (req, res, buf, encoding) {
-        req.rawBody = buf.toString();
+        req.rawBody = buf;
       }
     }))
     .use(function (req, res, next) {
+      if(req.rawBody) { next(); } 
       var data = new Buffer('');
       req.on('data', function(chunk) {
           data = Buffer.concat([data, chunk]);
