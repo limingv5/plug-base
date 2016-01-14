@@ -329,12 +329,13 @@ var quickStart = function (root) {
     }))
     .use(function (req, res, next) {
       if(req.rawBody) { next(); } 
-      var data = new Buffer('');
-      req.on('data', function(chunk) {
-          data = Buffer.concat([data, chunk]);
+      
+      var arr = [];
+      req.on("data", function(chunk) {
+        arr.push(chunk);
       });
-      req.on('end', function() {
-        req.rawBody = data;
+      req.on("end", function() {
+        req.rawBody = Buffer.concat(arr);
         next();
       });
     })
