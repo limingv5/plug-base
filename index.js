@@ -121,6 +121,16 @@ PlugBase.prototype = {
 
     this.app
       .use(function (req, res, next) {
+        var data = new Buffer('');
+        req.on('data', function(chunk) {
+            data = Buffer.concat([data, chunk]);
+        });
+        req.on('end', function() {
+          req.rawBody = data;
+          next();
+        });
+      })
+      .use(function (req, res, next) {
         if (!res.socket || res.socket.destroyed) {
           res.end();
         }
