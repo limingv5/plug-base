@@ -121,16 +121,6 @@ PlugBase.prototype = {
 
     this.app
       .use(function (req, res, next) {
-        var data = new Buffer('');
-        req.on('data', function(chunk) {
-            data = Buffer.concat([data, chunk]);
-        });
-        req.on('end', function() {
-          req.rawBody = data;
-          next();
-        });
-      })
-      .use(function (req, res, next) {
         if (!res.socket || res.socket.destroyed) {
           res.end();
         }
@@ -321,8 +311,32 @@ var quickStart = function (root) {
       });
       res.end(fs.readFileSync(rootCAPath, {encoding: null}));
     }.bind(this))
-    .use(bodyParser.raw())
-    .use(bodyParser.urlencoded({extended: true}))
+    .use(bodyParser.raw({
+       verify: function (req, res, buf, encoding) {
+        req.rawBody = buf.toString();
+      }
+    }))
+    .use(bodyParser.urlencoded({
+      extended: true,
+      verify: function (req, res, buf, encoding) {
+        req.rawBody = buf.toString();
+      }
+    }))
+    .use(bodyParser.json({
+      verify: function (req, res, buf, encoding) {
+        req.rawBody = buf.toString();
+      }
+    }))
+    .use(function (req, res, next) {
+      var data = new Buffer('');
+      req.on('data', function(chunk) {
+          data = Buffer.concat([data, chunk]);
+      });
+      req.on('end', function() {
+        req.rawBody = data;
+        next();
+      });
+    })
     .use(require("multer")())
     .end(function (req, res, next) {
       if (res._header) {
