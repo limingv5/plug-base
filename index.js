@@ -10,6 +10,9 @@ var bodyParser    = require("body-parser");
 var enableDestroy = require("server-destroy");
 var genCer        = require(path.join(__dirname, "/https/gen-cer.js"));
 
+var rootCA  = path.join(__dirname, "https/rootCA.crt");
+var rootKey = path.join(__dirname, "https/rootCA.key");
+
 function PlugBase() {
   this.app   = require("connect")();
   this.http  = null;
@@ -22,7 +25,6 @@ function PlugBase() {
   this.caFlag      = true;
   this.middlewares = [];
   this.endwares    = [];
-  this.rootCA      = path.join(__dirname, "https/rootCA.crt");
 
   this.root("src");
 }
@@ -42,7 +44,7 @@ PlugBase.prototype = {
     this.confdir = this.dir(confdir);
   },
   getRootCAPath: function () {
-    return this.rootCA;
+    return rootCA;
   },
   root: function (rootdir) {
     rootdir = this.dir(rootdir);
@@ -178,7 +180,6 @@ PlugBase.prototype = {
       if (https_port) {
         var exec     = require("child_process").exec;
         var platform = require("os").platform();
-        var rootCA   = self.rootCA;
 
         // init CMD
         var InstallRootCA;
@@ -204,38 +205,7 @@ PlugBase.prototype = {
               console.log("HTTPS Server is running at", chalk.yellow("https://" + domain + ':' + https_port));
             }
 
-            self.https = require("https")
-              .createServer({
-                SNICallback: function (domain, SNICallback) {
-                  var createSecureContext = require("tls").createSecureContext;
-
-                  if (!(typeof SNICallback == "function" && createSecureContext)) {
-                    console.log(
-                      "Your Node.js %s support %s, please %s your Node.js >= 0.12",
-                      chalk.yellow("IS NOT"),
-                      chalk.magenta("Async SNI"),
-                      chalk.green("UPDATE")
-                    );
-                    return;
-                  }
-
-                  genCer(domain, function (err, key, cert) {
-                    if (!err) {
-                      SNICallback(null, createSecureContext({
-                        key: key,
-                        cert: cert
-                      }));
-                      log(domain);
-                    }
-                    else {
-                      SNICallback(err);
-                    }
-                  });
-                },
-                key: default_key,
-                cert: default_cert,
-                ca: fs.readFileSync(rootCA, "utf-8")
-              }, self.app)
+            self.https = exports.createHttpsServer(self.app, default_key, default_cert, log)
               .listen(https_port, function () {
                 typeof cb == "function" && cb(https_port);
                 log(defaultHost);
@@ -312,7 +282,7 @@ var quickStart = function (root) {
       res.end(fs.readFileSync(rootCAPath, {encoding: null}));
     }.bind(this))
     .use(bodyParser.raw({
-       verify: function (req, res, buf, encoding) {
+      verify: function (req, res, buf, encoding) {
         req.rawBody = buf;
       }
     }))
@@ -328,15 +298,15 @@ var quickStart = function (root) {
       }
     }))
     .use(function (req, res, next) {
-      if(req.rawBody) {
+      if (req.rawBody) {
         next();
       }
       else {
         var arr = [];
-        req.on("data", function(chunk) {
+        req.on("data", function (chunk) {
           arr.push(chunk);
         });
-        req.on("end", function() {
+        req.on("end", function () {
           req.rawBody = Buffer.concat(arr);
           next();
         });
@@ -389,6 +359,54 @@ exports.quickStart = quickStart;
 exports.pure       = pure;
 exports.parser     = parser;
 exports.PlugBase   = PlugBase;
+
+exports.createHttpsServer = function (app, default_key, default_cert, log) {
+  var certCache = {};
+
+  return require("https")
+    .createServer({
+      SNICallback: function (domain, SNICallback) {
+        var createSecureContext = require("tls").createSecureContext;
+
+        if (!(typeof SNICallback == "function" && createSecureContext)) {
+          console.log(
+            "Your Node.js %s support %s, please %s your Node.js >= 0.12",
+            chalk.yellow("IS NOT"),
+            chalk.magenta("Async SNI"),
+            chalk.green("UPDATE")
+          );
+          return;
+        }
+
+        if (certCache[domain]) {
+          SNICallback(null, createSecureContext(certCache[domain]));
+        }
+        else {
+          genCer(domain, function (err, key, cert) {
+            if (!err) {
+              certCache[domain] = {
+                key: key,
+                cert: cert
+              };
+              SNICallback(null, createSecureContext(certCache[domain]));
+              if (log) {
+                log(domain);
+              }
+              else {
+                console.log(domain);
+              }
+            }
+            else {
+              SNICallback(err);
+            }
+          });
+        }
+      },
+      key: default_key || fs.readFileSync(rootKey, "utf-8"),
+      cert: default_cert || fs.readFileSync(rootCA, "utf-8"),
+      ca: fs.readFileSync(rootCA, "utf-8")
+    }, app || null);
+};
 
 process.on("uncaughtException", function (err) {
   console.log("Caught Exception: " + err);
