@@ -360,6 +360,7 @@ exports.pure       = pure;
 exports.parser     = parser;
 exports.PlugBase   = PlugBase;
 
+exports.genCer = genCer;
 exports.createHttpsServer = function (app, default_key, default_cert, log) {
   var certCache = {};
 
