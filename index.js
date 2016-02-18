@@ -2,6 +2,7 @@ var fs            = require("fs");
 var path          = require("path");
 var urlLib        = require("url");
 var net           = require("net");
+var merge         = require("merge");
 var mime          = require("mime");
 var chalk         = require("chalk");
 var ipLib         = require("ip");
@@ -155,8 +156,10 @@ PlugBase.prototype = {
       self.middlewares.forEach(function (middleware) {
         var module = middleware.module;
         if (module && typeof module == "function") {
-          middleware.params.hosts   = hosts;
-          middleware.params.rootdir = middleware.params.rootdir || self.rootdir;
+          middleware.params = merge.recursive(true, {
+            rootdir: self.rootdir,
+            hosts: hosts
+          }, middleware.params);
 
           self.app.use(module(middleware.params, self.confdir));
         }
