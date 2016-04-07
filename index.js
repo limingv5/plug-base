@@ -324,13 +324,13 @@ var quickStart = function (root, showIndex) {
         next();
       }
     })
-    .end(require("serve-index")(server.getRootPath(), {icons: true}))
     .end(require("serve-static")(server.getRootPath(), {
       index: showIndex,
       setHeaders: function (res, path) {
         res.setHeader("Content-Type", mime.lookup(path));
       }
-    }));
+    }))
+    .end(require("serve-index")(server.getRootPath(), {icons: true}));
   return server;
 };
 
