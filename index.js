@@ -176,7 +176,10 @@ PlugBase.prototype = {
         .createServer(self.app)
         .listen(http_port, function () {
           console.log("HTTP Server is running at", chalk.cyan("http://" + defaultHost + ':' + http_port));
-          typeof cb == "function" && cb(http_port);
+
+          if (typeof cb == "function" && !https_port) {
+            cb(null, http_port);
+          }
         });
       enableDestroy(self.http)
 
@@ -210,8 +213,11 @@ PlugBase.prototype = {
 
             self.https = exports.createHttpsServer(self.app, default_key, default_cert, log)
               .listen(https_port, function () {
-                typeof cb == "function" && cb(https_port);
                 log(defaultHost);
+
+                if (typeof cb == "function") {
+                  cb(null, http_port, https_port);
+                }
               });
 
             enableDestroy(self.https);
