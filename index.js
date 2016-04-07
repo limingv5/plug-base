@@ -240,7 +240,7 @@ PlugBase.prototype = {
   }
 };
 
-var quickStart = function (root) {
+var quickStart = function (root, showIndex) {
   var server = new PlugBase();
   if (typeof root != "undefined") {
     server.root(root);
@@ -326,7 +326,7 @@ var quickStart = function (root) {
     })
     .end(require("serve-index")(server.getRootPath(), {icons: true}))
     .end(require("serve-static")(server.getRootPath(), {
-      index: false,
+      index: showIndex,
       setHeaders: function (res, path) {
         res.setHeader("Content-Type", mime.lookup(path));
       }
