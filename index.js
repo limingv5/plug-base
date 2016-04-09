@@ -321,22 +321,19 @@ var quickStart = function (root, showIndex) {
         });
       }
     })
-    .use(require("multer")())
-    .end(function (req, res, next) {
-      if (res._header) {
-        return;
-      }
-      else {
-        next();
-      }
-    })
-    .end(require("serve-static")(server.getRootPath(), {
-      index: showIndex,
-      setHeaders: function (res, path) {
-        res.setHeader("Content-Type", mime.lookup(path));
-      }
-    }))
-    .end(require("serve-index")(server.getRootPath(), {icons: true}));
+    .use(require("multer")());
+
+  if (!showIndex) {
+    server.end(require("serve-index")(server.getRootPath(), {icons: true}));
+  }
+
+  server.end(require("serve-static")(server.getRootPath(), {
+    index: showIndex,
+    setHeaders: function (res, path) {
+      res.setHeader("Content-Type", mime.lookup(path));
+    }
+  }));
+
   return server;
 };
 
