@@ -233,6 +233,7 @@ PlugBase.prototype = {
       require("flex-hosts")(this.hostsMap, this.confdir, function (err, hosts) {
         if (err) {
           console.log(chalk.red("DNS lookup Error!"));
+          console.error(err);
           console.log("You need to set the %s field by yourself!\n", chalk.yellow("hosts"));
           hosts = {};
         }
