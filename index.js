@@ -9,10 +9,9 @@ var ipLib         = require("ip");
 var QUERY         = require("qs");
 var bodyParser    = require("body-parser");
 var enableDestroy = require("server-destroy");
-var genCer        = require(path.join(__dirname, "/https/gen-cer.js"));
-
-var rootCA  = path.join(__dirname, "https/rootCA.crt");
-var rootKey = path.join(__dirname, "https/rootCA.key");
+var HTTPSCERT     = require("https-cert");
+var genCer        = HTTPSCERT.sign;
+var rootCA        = HTTPSCERT.path;
 
 function PlugBase() {
   this.app   = require("connect")();
@@ -410,8 +409,8 @@ exports.createHttpsServer = function (app, default_key, default_cert, log) {
           });
         }
       },
-      key: default_key || fs.readFileSync(rootKey, "utf-8"),
-      cert: default_cert || fs.readFileSync(rootCA, "utf-8"),
+      key: default_key,
+      cert: default_cert,
       ca: fs.readFileSync(rootCA, "utf-8")
     }, app || null);
 };
