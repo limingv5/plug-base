@@ -1,6 +1,6 @@
 {
   "name": "plug-base",
-  "version": "0.9.21",
+  "version": "0.9.22",
   "description": "Plug Base for FE-Dev",
   "main": "index.js",
   "repository": "https://github.com/limingv5/plug-base.git",
@@ -31,7 +31,7 @@
     "qrcode-npm": "0.0.3",
     "qs": "~6.0.2",
     "serve-index": "^1.9.0",
-    "serve-static": "~1.10.2",
-    "server-destroy": "~1.0.1"
+    "serve-static": "^1.10.2",
+    "server-destroy": "^1.0.1"
   }
 }
