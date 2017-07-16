@@ -30,7 +30,7 @@
     "multer": "~1.0.6",
     "qrcode-npm": "0.0.3",
     "qs": "~6.0.2",
-    "serve-index": "~1.7.2",
+    "serve-index": "^1.9.0",
     "serve-static": "~1.10.2",
     "server-destroy": "~1.0.1"
   }
